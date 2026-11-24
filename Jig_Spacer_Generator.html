@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Jig Spacer Generator · UBC Steel Bridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme:light;
+    --paper:#ffffff; --paper-2:#f1f3f7; --surface:#ffffff; --ink:#061c5a; --ink-2:#34406a; --muted:#686e80;
+    --line:#d9dde6; --accent:#061c5a; --accent-ink:#061c5a; --on-accent:#ffffff; --view:#f1f3f7; --warn:#a1162b;
+    --head:'Archivo',system-ui,sans-serif; --body:'Archivo',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .mono{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase}
+  a{color:inherit}
+  [hidden]{display:none!important}
+
+  header{border-bottom:1px solid var(--line);background:var(--surface)}
+  header .in{max-width:1400px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .back{text-decoration:none;color:var(--accent-ink);font-weight:500}
+  .back:hover{color:var(--accent-ink)}
+  h1{font-family:var(--head);font-size:1.5rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;margin:4px 0 2px}
+  .sub{color:var(--muted)}
+
+  .app{max-width:1400px;margin:0 auto;padding:20px 24px 40px;display:grid;grid-template-columns:330px 1fr;gap:20px}
+  .panel{background:var(--surface);border:1px solid var(--line)}
+  .panel h2{font-family:var(--head);font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .panel .pad{padding:14px 16px}
+
+  .grp{color:var(--muted);margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--line)}
+  .grp:first-child{margin-top:0;padding-top:0;border-top:0}
+  .seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--ink);margin-bottom:12px}
+  .seg button{padding:8px;border:0;background:transparent;color:var(--ink);font:700 .74rem var(--body);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .field{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:6px 10px;margin-bottom:10px}
+  .field label{font-size:.88rem;color:var(--ink-2)}
+  .field input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:500 .88rem var(--mono);text-align:right}
+  .field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+  .field .u{font-size:.7rem;color:var(--muted)}
+  .msg{min-height:1.2em;color:var(--warn);font-size:.82rem;margin-top:4px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .btn{padding:8px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:700 .72rem var(--body);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+  .btn:hover{background:var(--ink);color:var(--paper)}
+  .btn.primary{background:var(--ink);color:var(--paper)}
+  .btn.primary:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .btn.sm{padding:4px 9px;font-size:.72rem}
+
+  table{width:100%;border-collapse:collapse;font-size:.8rem}
+  th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-family:var(--mono);font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  td{font-family:var(--mono);font-size:.76rem}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--paper-2)}
+  tbody tr.on{background:var(--paper-2);box-shadow:inset 3px 0 0 var(--accent)}
+  .tablewrap{overflow-x:auto}
+
+  .right{display:grid;gap:20px;grid-template-rows:auto auto;min-width:0}
+  .viewer{position:relative;height:440px;background:var(--view);border:1px solid var(--line)}
+  .viewer canvas{display:block;width:100%;height:100%}
+  .hud{position:absolute;left:12px;top:10px;color:var(--muted);pointer-events:none}
+  .hint{position:absolute;right:12px;bottom:10px;color:var(--muted);pointer-events:none}
+  .viewbtns{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+  .viewbtns button{padding:5px 9px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:500 .66rem var(--mono);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+  .viewbtns button:hover{border-color:var(--ink);color:var(--ink)}
+  .fallback{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:20px;color:var(--muted)}
+
+  .lower{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;min-width:0;align-items:start}
+  .sheet{background:#fff;color:#061c5a;border:1px solid var(--line)}
+  .sheet svg{display:block;width:100%;height:auto}
+  .props dl{display:grid;grid-template-columns:1fr auto}
+  .props dt,.props dd{padding:7px 16px;border-bottom:1px solid var(--line)}
+  .props dt{color:var(--ink-2);font-size:.86rem}
+  .props dd{font-family:var(--mono);font-size:.82rem;text-align:right}
+  .props .note{padding:10px 16px;color:var(--muted);font-size:.78rem}
+
+  @media (max-width:1000px){
+    .app{grid-template-columns:1fr}
+    .lower{grid-template-columns:1fr}
+    .viewer{height:360px}
+  }
+
+  /* UBC Steel Bridge brand bar: always white so the full-colour logo reads in both themes */
+  .brandbar{background:#ffffff;color:#000000;border-bottom:3px solid #061c5a}
+  .brandbar .bb-in{max-width:1500px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px 28px;flex-wrap:wrap}
+  .bb-logo{display:block;line-height:0}
+  .bb-logo img{display:block;height:44px;width:auto}
+  .bb-nav{display:flex;flex-wrap:wrap;gap:4px 24px}
+  .bb-nav a{font:600 .74rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#000000;text-decoration:none;padding:7px 0 5px;border-bottom:2px solid transparent}
+  .bb-nav a:hover{color:#061c5a;border-bottom-color:#061c5a}
+  .bb-nav a[aria-current="page"]{color:#061c5a;border-bottom-color:#061c5a}
+  .bb-nav a:focus-visible{outline:2px solid #061c5a;outline-offset:2px}
+  @media (max-width:560px){ .brandbar .bb-in{padding:10px 16px} .bb-logo img{height:30px} .bb-nav{gap:4px 16px} }
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div class="brandbar">
+  <div class="bb-in">
+    <a class="bb-logo" href="index.html" aria-label="UBC Steel Bridge tools home"><img src="assets/steelbridge-niik.png" alt="UBC Steel Bridge and niik steel" width="1200" height="221"></a>
+    <nav class="bb-nav" aria-label="Team tools"><a href="index.html">Tools</a><a href="AutoMODELER_Tube_Generator.html">Tube generator</a><a href="Jig_Spacer_Generator.html" aria-current="page">Jig spacer</a><a href="https://ubcsteelbridge.ca/" target="_blank" rel="noopener">Team site &#8599;</a></nav>
+  </div>
+</div>
+
+<header>
+  <div class="in">
+    <div>
+      <a class="back mono" href="index.html">&larr; Steel Bridge tools</a>
+      <h1>Parametric jig spacer generator</h1>
+      <div class="sub">3D-printed arms that hold each section at height in the welding jig: set the section and its height, get the printable profile.</div>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+
+  <div style="display:grid;gap:20px;align-content:start">
+    <div class="panel">
+      <h2>Parameters <span class="mono" id="partLabel" style="color:var(--accent-ink)"></span></h2>
+      <div class="pad">
+        <div class="grp mono">Section held</div>
+        <div class="seg" role="group" aria-label="Section shape">
+          <button type="button" data-shape="round" aria-pressed="true">Round HSS</button>
+          <button type="button" data-shape="rect" aria-pressed="false">Rect HSS</button>
+        </div>
+        <div class="field" data-for="round"><label for="D">Outside diameter <span class="u">mm</span></label><input id="D" type="number" step="0.1"><input type="range" data-link="D" min="12" max="120" step="0.1"></div>
+        <div class="field" data-for="rect"><label for="H">Depth, H <span class="u">mm</span></label><input id="H" type="number" step="0.1"><input type="range" data-link="H" min="12" max="150" step="0.1"></div>
+        <div class="field" data-for="rect"><label for="B">Width, B <span class="u">mm</span></label><input id="B" type="number" step="0.1"><input type="range" data-link="B" min="12" max="150" step="0.1"></div>
+
+        <div class="grp mono">Height off jig</div>
+        <div class="seg" role="group" aria-label="Height reference">
+          <button type="button" data-ref="cl" aria-pressed="true">To centreline</button>
+          <button type="button" data-ref="bot" aria-pressed="false">To underside</button>
+        </div>
+        <div class="field"><label for="h">Height off jig surface <span class="u">mm</span></label><input id="h" type="number" step="0.5"><input type="range" data-link="h" min="5" max="400" step="0.5"></div>
+
+        <div class="grp mono">Spacer body</div>
+        <div class="field"><label for="cap">Cradle depth <span class="u">% of section</span></label><input id="cap" type="number" step="1"><input type="range" data-link="cap" min="25" max="100" step="1"></div>
+        <div class="field"><label for="clr">Fit clearance, per side <span class="u">mm</span></label><input id="clr" type="number" step="0.05"><input type="range" data-link="clr" min="0" max="2" step="0.05"></div>
+        <div class="field"><label for="wall">Arm width <span class="u">mm</span></label><input id="wall" type="number" step="0.5"><input type="range" data-link="wall" min="3" max="40" step="0.5"></div>
+        <div class="field"><label for="tp">Extruded depth <span class="u">mm</span></label><input id="tp" type="number" step="1"><input type="range" data-link="tp" min="5" max="150" step="1"></div>
+        <div class="field"><label for="tw">Locating tab width <span class="u">mm</span></label><input id="tw" type="number" step="0.5"><input type="range" data-link="tw" min="5" max="120" step="0.5"></div>
+        <div class="field"><label for="td">Tab depth (jig plate) <span class="u">mm</span></label><input id="td" type="number" step="0.1"><input type="range" data-link="td" min="0" max="20" step="0.1"></div>
+        <div class="msg" id="msg" role="status"></div>
+        <div class="btns">
+          <button class="btn" type="button" id="updRow">Update row</button>
+          <button class="btn primary" type="button" id="addRow">Save as new row</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Spacer table <button class="btn sm" type="button" id="copyCsv">Copy CSV</button></h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Part</th><th>Holds</th><th>CL ht</th><th>Depth</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="viewer" id="viewer">
+      <div class="hud mono" id="hud"></div>
+      <div class="viewbtns">
+        <button type="button" data-view="iso">Iso</button>
+        <button type="button" data-view="front">Elev</button>
+        <button type="button" data-view="side">Side</button>
+      </div>
+      <div class="hint mono">Drag to orbit · scroll to zoom</div>
+      <div class="fallback" id="fallback">3D view needs WebGL. The drawing and properties below still update.</div>
+    </div>
+
+    <div class="lower">
+      <div class="sheet" id="sheet" aria-label="Generated spacer drawing"></div>
+      <div class="panel props">
+        <h2>Spacer properties <button class="btn sm" type="button" id="copyDxf">Copy DXF</button></h2>
+        <dl id="props"></dl>
+        <div class="note">Round sections sit in a circular cradle and rectangular sections in a square pocket, each opened up by the fit clearance; the seat stays at the section underside so the centreline height holds. Mass assumes solid PLA at 1.24 g/cm³, so a print with partial infill will be lighter. Copy DXF puts the profile on the clipboard as DXF text (1:1, mm) to paste into a .dxf file and extrude in CAD.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ---------- Data ---------- */
+let rows = [
+  {part:'JS-01', shape:'round', D:33.4, H:33.4, B:33.4, ref:'cl',  h:75,  cap:50, clr:0.25, wall:10, tp:40, tw:30, td:6.4},
+  {part:'JS-02', shape:'round', D:42.2, H:42.2, B:42.2, ref:'cl',  h:120, cap:50, clr:0.25, wall:10, tp:40, tw:40, td:6.4},
+  {part:'JS-03', shape:'rect',  D:38.1, H:38.1, B:38.1, ref:'cl',  h:75,  cap:50, clr:0.25, wall:10, tp:40, tw:30, td:6.4},
+  {part:'JS-04', shape:'rect',  D:50.8, H:50.8, B:25.4, ref:'bot', h:150, cap:60, clr:0.25, wall:12, tp:40, tw:25, td:6.4},
+  {part:'JS-05', shape:'round', D:26.7, H:26.7, B:26.7, ref:'cl',  h:200, cap:50, clr:0.25, wall:12, tp:40, tw:30, td:6.4},
+];
+let cur = 0;
+let p = {...rows[0]};
+const RHO = 1240e-9; // kg/mm³, solid PLA
+const $ = id => document.getElementById(id);
+const f1 = x => (Math.round(x*10)/10).toString();
+
+/* ---------- Spacer geometry ---------- */
+// Spacer profile, extruded along the member: x across the jig, y up from the jig surface (y = 0).
+// The tab projects below y = 0 into a slot in the jig plate.
+function geom(q){
+  const round = q.shape==='round';
+  const H = round ? q.D : q.H, B = round ? q.D : q.B;
+  const yc = q.ref==='cl' ? q.h : q.h + H/2;       // section centreline height
+  const seat = yc - H/2;                           // underside of section
+  const top = seat + q.cap/100*H;                  // top of arms
+  let notch, open, low, W, rc = 0;
+  if(round){
+    // Circular cradle of radius R + clearance, lowest point at the section underside.
+    // Above the arc centre the walls run straight up so the tube can still drop in.
+    const Rc = q.D/2 + q.clr, ya = seat + Rc, n = 36;
+    const a0 = Math.asin(Math.min(1, Math.max(0, (ya - top)/Rc)));
+    open = 2*Rc*Math.cos(a0); low = seat; W = open + 2*q.wall; rc = Rc;
+    notch = top > ya ? [[Rc,top]] : [];
+    for(let i=0;i<=n;i++){ const a = -a0 - (Math.PI - 2*a0)*i/n; notch.push([Rc*Math.cos(a), ya + Rc*Math.sin(a)]); }
+    if(top > ya) notch.push([-Rc,top]);
+  } else {
+    open = B + 2*q.clr; low = seat; W = open + 2*q.wall;
+    notch = [[open/2,top],[open/2,seat],[-open/2,seat],[-open/2,top]];
+  }
+  let pts = [[-q.tw/2,-q.td],[q.tw/2,-q.td],[q.tw/2,0],[W/2,0],[W/2,top],...notch,[-W/2,top],[-W/2,0],[-q.tw/2,0]];
+  pts = pts.filter((a,i)=>{ const b = pts[(i+1)%pts.length]; return Math.hypot(a[0]-b[0],a[1]-b[1]) > 1e-6; });
+  let A = 0, P = 0;
+  pts.forEach((a,i)=>{ const b = pts[(i+1)%pts.length]; A += a[0]*b[1]-b[0]*a[1]; P += Math.hypot(a[0]-b[0],a[1]-b[1]); });
+  return {round, H, B, yc, seat, top, open, low, W, rc, pts, A:Math.abs(A)/2, P, yTop:Math.max(top, yc+H/2)};
+}
+function check(q){
+  if(!(q.tp>0)) return 'Extruded depth must be positive.';
+  if(!(q.wall>=2)) return 'Arm width must be at least 2 mm.';
+  const g = geom(q);
+  if(g.low < 3) return 'Too low: less than 3 mm of material under the section. Raise the height.';
+  if(q.tw > g.W) return `Locating tab is wider than the spacer (${f1(g.W)} mm).`;
+  return '';
+}
+
+// Outline of the held section, for the ghost in the model and drawing.
+function sectionLoop(B, H, r, n=14){
+  const pts = [], cx = B/2 - r, cy = H/2 - r;
+  [[cx,cy],[-cx,cy],[-cx,-cy],[cx,-cy]].forEach(([x0,y0],c)=>{
+    for(let i=0;i<=n;i++){ const a=(c+i/n)*Math.PI/2; pts.push([x0+r*Math.cos(a), y0+r*Math.sin(a)]); }
+  });
+  return pts;
+}
+function ghostLoops(g){
+  const tg = Math.min(3.2, Math.min(g.H,g.B)/5);   // nominal wall, display only
+  if(g.round) return {outer:sectionLoop(g.B,g.H,g.H/2), inner:sectionLoop(g.B-2*tg,g.H-2*tg,g.H/2-tg)};
+  const r = Math.min(2*tg, Math.min(g.B,g.H)/2);
+  return {outer:sectionLoop(g.B,g.H,r), inner:sectionLoop(g.B-2*tg,g.H-2*tg,Math.max(r-tg,0))};
+}
+
+/* ---------- 3D ---------- */
+let renderer, scene, camera, controls, group, gl = true;
+const viewer = $('viewer');
+try{ renderer = new THREE.WebGLRenderer({antialias:true, alpha:true}); }
+catch(e){ gl = false; $('fallback').style.display='grid'; }
+
+if(gl){
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  viewer.appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(35, 1, 1, 50000);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445066, 1.4));
+  const d1 = new THREE.DirectionalLight(0xffffff, 2.2); d1.position.set(1, 1.6, 1.2); scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0xffffff, 0.8); d2.position.set(-1.2, -0.4, -1); scene.add(d2);
+  new ResizeObserver(resize).observe(viewer);
+  (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene,camera); })();
+}
+function resize(){
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+const toShape = pts => { const s = new THREE.Shape(); pts.forEach(([x,y],i)=> i ? s.lineTo(x,y) : s.moveTo(x,y)); s.closePath(); return s; };
+const stubLen = g => Math.max(160, g.W*2.2, p.tp*2.5);
+
+function updateModel(q, g, refit){
+  if(!gl) return;
+  if(group){ scene.remove(group); group.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); }); }
+  group = new THREE.Group();
+  const Ls = stubLen(g);
+
+  // Spacer body
+  const pg = new THREE.ExtrudeGeometry(toShape(g.pts), {depth:q.tp, bevelEnabled:false});
+  pg.translate(0,0,-q.tp/2);
+  group.add(new THREE.Mesh(pg, new THREE.MeshStandardMaterial({color:0xb4bcc9, metalness:.25, roughness:.45, side:THREE.DoubleSide})));
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(pg, 20), new THREE.LineBasicMaterial({color:0x061c5a, transparent:true, opacity:.6})));
+
+  // Held section (ghost)
+  const {outer, inner} = ghostLoops(g);
+  const ss = toShape(outer); ss.holes.push(new THREE.Path(inner.map(([x,y])=>new THREE.Vector2(x,y))));
+  const sg = new THREE.ExtrudeGeometry(ss, {depth:Ls, bevelEnabled:false, curveSegments:1});
+  sg.translate(0, g.yc, -Ls/2);
+  group.add(new THREE.Mesh(sg, new THREE.MeshStandardMaterial({color:0x2a56c6, transparent:true, opacity:.32, roughness:.6, side:THREE.DoubleSide, depthWrite:false})));
+
+  // Jig plate (ghost), top face at y = 0
+  const jt = Math.max(q.td, 3);
+  const jg = new THREE.BoxGeometry(g.W + 140, jt, Ls);
+  jg.translate(0, -jt/2, 0);
+  group.add(new THREE.Mesh(jg, new THREE.MeshStandardMaterial({color:0x6b7488, transparent:true, opacity:.28, roughness:.8, depthWrite:false})));
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(jg), new THREE.LineBasicMaterial({color:0x6b7488, transparent:true, opacity:.6})));
+
+  scene.add(group);
+  if(refit) setView(currentView);
+}
+let currentView = 'iso';
+function setView(v){
+  if(!gl) return;
+  currentView = v;
+  const g = geom(p), span = Math.max(g.W + 140, g.yTop + p.td + 40, stubLen(g));
+  const d = span / (2*Math.tan(camera.fov*Math.PI/360)) * 1.45;
+  const dir = v==='front' ? [0,0,1] : v==='side' ? [1,0,0.0001] : [0.6,0.45,0.8];
+  const c = new THREE.Vector3(0, g.yTop/2, 0);
+  camera.position.copy(new THREE.Vector3(...dir).normalize().multiplyScalar(d).add(c));
+  controls.target.copy(c); camera.near = d/200; camera.far = d*20; camera.updateProjectionMatrix();
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+
+/* ---------- Drawing (SVG) ---------- */
+const holdsLabel = q => q.shape==='round' ? `HSS Ø${f1(q.D)}` : `HSS ${f1(q.H)} × ${f1(q.B)}`;
+function drawing(q, g){
+  const W = 800, VH = 420, cx = 250, sx = 610, yb = 272;
+  const k = Math.min(250/g.W, 205/(g.yTop + q.td), 150/q.tp, 4);
+  const X = x => cx + x*k, Y = y => yb - (y + q.td)*k;
+  const dimH = (xa,xb,y,label,refA,refB) => `
+    <line x1="${xa}" y1="${refA}" x2="${xa}" y2="${y+5*Math.sign(y-refA)}" class="ext"/>
+    <line x1="${xb}" y1="${refB}" x2="${xb}" y2="${y+5*Math.sign(y-refB)}" class="ext"/>
+    <line x1="${xa}" y1="${y}" x2="${xb}" y2="${y}" class="dim" marker-start="url(#ar)" marker-end="url(#ar)"/>
+    <text x="${(xa+xb)/2}" y="${y-5}" class="dt">${label}</text>`;
+  const dimV = (ya,yb2,x,label,refA,refB) => `
+    <line x1="${refA}" y1="${ya}" x2="${x+5*Math.sign(x-refA)}" y2="${ya}" class="ext"/>
+    <line x1="${refB}" y1="${yb2}" x2="${x+5*Math.sign(x-refB)}" y2="${yb2}" class="ext"/>
+    <line x1="${x}" y1="${ya}" x2="${x}" y2="${yb2}" class="dim" marker-start="url(#ar)" marker-end="url(#ar)"/>
+    <text transform="translate(${x-5},${(ya+yb2)/2}) rotate(-90)" class="dt">${label}</text>`;
+
+  const poly = g.pts.map(([x,y])=>`${X(x)},${Y(y)}`).join(' ');
+  const ghost = 'M' + ghostLoops(g).outer.map(([x,y])=>`${X(x)},${Y(y+g.yc)}`).join('L') + 'Z';
+  const xl = X(-g.W/2), xr = X(g.W/2), hw = q.tp*k/2;
+  const mass = g.A*q.tp*RHO*1000;
+  const lowLabel = `${f1(g.low)} SEAT`;
+
+  return `<svg viewBox="0 0 ${W} ${VH}" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, monospace">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,2 L10,5 L0,8 z" fill="#061c5a"/></marker>
+    <style>
+      .obj{fill:#e8ecf2;stroke:#061c5a;stroke-width:1.6;stroke-linejoin:round}
+      .hid{fill:none;stroke:#061c5a;stroke-width:.8;stroke-dasharray:6 4}
+      .gh{fill:none;stroke:#061c5a;stroke-width:1;stroke-dasharray:5 3}
+      .cl{stroke:#061c5a;stroke-width:.8;stroke-dasharray:18 4 3 4}
+      .jig{stroke:#6b7488;stroke-width:1.2}
+      .ext{stroke:#6b7488;stroke-width:.6}
+      .dim{stroke:#061c5a;stroke-width:.7}
+      .dt{font-size:11px;fill:#061c5a;text-anchor:middle}
+      .lbl{font-size:10px;fill:#6b7488;letter-spacing:.08em}
+      .tb{fill:none;stroke:#061c5a;stroke-width:1.2}
+      .tk{font-size:8px;fill:#6b7488;letter-spacing:.08em}
+      .tv{font-size:12px;fill:#061c5a;font-family:'Archivo',sans-serif;font-weight:600}
+    </style>
+  </defs>
+  <rect x="6" y="6" width="${W-12}" height="${VH-12}" class="tb"/>
+  <text x="24" y="30" class="lbl">ELEVATION</text>
+  <text x="${sx-60}" y="30" class="lbl">SIDE</text>
+
+  <!-- Elevation -->
+  <polygon points="${poly}" class="obj"/>
+  <line x1="${xl-48}" y1="${Y(0)}" x2="${xr+66}" y2="${Y(0)}" class="jig"/>
+  <text x="${xl-48}" y="${Y(0)+12}" class="lbl">JIG SURFACE</text>
+  <path d="${ghost}" class="gh"/>
+  <line x1="${xl-40}" y1="${Y(g.yc)}" x2="${xr+14}" y2="${Y(g.yc)}" class="cl"/>
+  <line x1="${X(0)}" y1="${Y(g.yc+g.H/2)-10}" x2="${X(0)}" y2="${Y(g.yc-g.H/2)+10}" class="cl"/>
+  ${dimV(Y(0),Y(g.yc),xl-30,`${f1(g.yc)} CL`,xl,xl)}
+  ${dimV(Y(0),Y(g.low),xr+24,lowLabel,xr,xr)}
+  ${dimV(Y(0),Y(g.top),xr+50,f1(g.top),xr,xr)}
+  ${dimH(X(-g.open/2),X(g.open/2),Y(g.yTop)-18,f1(g.open),Y(g.top),Y(g.top))}
+  ${q.td>0 ? dimH(X(-q.tw/2),X(q.tw/2),Y(-q.td)+18,f1(q.tw),Y(-q.td),Y(-q.td)) : ''}
+  ${dimH(xl,xr,Y(-q.td)+38,f1(g.W),Y(0),Y(0))}
+
+  <!-- Side -->
+  <rect x="${sx-hw}" y="${Y(g.top)}" width="${2*hw}" height="${Y(-q.td)-Y(g.top)}" class="obj"/>
+  <line x1="${sx-hw}" y1="${Y(g.low)}" x2="${sx+hw}" y2="${Y(g.low)}" class="hid"/>
+  <line x1="${sx-46}" y1="${Y(0)}" x2="${sx+46}" y2="${Y(0)}" class="jig"/>
+  <line x1="${sx-46}" y1="${Y(g.yc)}" x2="${sx+46}" y2="${Y(g.yc)}" class="cl"/>
+  ${dimH(sx-hw,sx+hw,Y(g.top)-18,f1(q.tp),Y(g.top),Y(g.top))}
+  ${q.td>0 ? dimV(Y(-q.td),Y(0),sx+hw+62,f1(q.td),sx+hw,sx+46) : ''}
+
+  <g transform="translate(6,${VH-66})">
+    <rect x="0" y="0" width="${W-12}" height="60" class="tb"/>
+    ${[['PART',q.part||'—',0,110],['HOLDS',holdsLabel(q),110,300],['CRADLE',g.round?`Arc R${f1(g.rc)}`:`Pocket ${f1(g.open)}`,300,430],['BODY W × H × D',`${f1(g.W)} × ${f1(g.top+q.td)} × ${f1(q.tp)}`,430,660],['MASS (PLA)',`${mass.toFixed(0)} g`,660,W-12]]
+      .map(([k1,v,a,b])=>`<line x1="${b}" y1="0" x2="${b}" y2="60" stroke="#061c5a" stroke-width="${b===W-12?0:1}"/><text x="${a+10}" y="20" class="tk">${k1}</text><text x="${a+10}" y="42" class="tv">${v}</text>`).join('')}
+  </g>
+  <text x="${W-14}" y="${VH-76}" class="lbl" text-anchor="end">ALL DIMENSIONS IN mm · NTS</text>
+</svg>`;
+}
+
+/* ---------- Properties ---------- */
+function propsHTML(q,g){
+  const list = [
+    ['Section centreline height', `${f1(g.yc)} mm`],
+    ['Section underside height', `${f1(g.seat)} mm`],
+    [g.round ? 'Cradle radius' : 'Pocket width', `${f1(g.round ? g.rc : g.open)} mm`],
+    ['Cradle opening at top', `${f1(g.open)} mm`],
+    ['Top of arms', `${f1(g.top)} mm`],
+    ['Body, W × H × D', `${f1(g.W)} × ${f1(g.top+q.td)} × ${f1(q.tp)} mm`],
+    ['Volume', `${(g.A*q.tp/1000).toFixed(1)} cm³`],
+    ['Mass, solid PLA', `${(g.A*q.tp*RHO*1000).toFixed(0)} g`],
+  ];
+  return list.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
+}
+
+/* ---------- UI wiring ---------- */
+const keys = ['D','H','B','h','cap','clr','wall','tp','tw','td'];
+function renderTable(){
+  $('rows').innerHTML = rows.map((r,i)=>{ const g = geom(r); return `<tr class="${i===cur?'on':''}" data-i="${i}">
+    <td>${r.part}</td><td>${r.shape==='round'?`Ø${f1(r.D)}`:`${f1(r.H)}×${f1(r.B)}`}</td><td>${f1(g.yc)}</td><td>${f1(r.tp)}</td>
+    <td><button class="btn" data-del="${i}" style="padding:1px 6px;font-size:.7rem" aria-label="Delete ${r.part}">×</button></td></tr>`; }).join('');
+}
+function syncInputs(){
+  keys.forEach(k=>{ $(k).value = p[k]; document.querySelector(`[data-link="${k}"]`).value = p[k]; });
+  document.querySelectorAll('[data-shape]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.shape===p.shape));
+  document.querySelectorAll('[data-ref]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.ref===p.ref));
+  document.querySelectorAll('[data-for]').forEach(f=>f.hidden = f.dataset.for!==p.shape);
+  $('partLabel').textContent = p.part || '';
+}
+function refresh(refit){
+  const err = check(p);
+  $('msg').textContent = err;
+  if(err) return;
+  const g = geom(p);
+  updateModel(p, g, refit);
+  $('sheet').innerHTML = drawing(p, g);
+  $('props').innerHTML = propsHTML(p, g);
+  $('hud').textContent = `${p.part||''}  ${holdsLabel(p)} @ ${f1(g.yc)} mm CL · ${f1(p.tp)} mm deep`;
+}
+keys.forEach(k=>{
+  const num = $(k), rng = document.querySelector(`[data-link="${k}"]`);
+  const set = (v, from) => { const x = parseFloat(v); if(!isFinite(x)) return; p[k]=x; if(from!==num) num.value=x; rng.value=x;
+    if(p.shape==='round' && k==='D'){ p.H = p.B = x; } refresh(false); };
+  num.addEventListener('input', e=>set(e.target.value, num));
+  rng.addEventListener('input', e=>set(e.target.value, rng));
+});
+document.querySelectorAll('[data-shape]').forEach(b=>b.addEventListener('click',()=>{
+  p.shape = b.dataset.shape;
+  if(p.shape==='round'){ p.D = p.D || p.H; } else { p.H = p.H || p.D; p.B = p.B || p.D; }
+  syncInputs(); refresh(true);
+}));
+// Switching the reference keeps the section where it is and restates the height.
+document.querySelectorAll('[data-ref]').forEach(b=>b.addEventListener('click',()=>{
+  if(p.ref === b.dataset.ref) return;
+  const g = geom(p);
+  p.ref = b.dataset.ref; p.h = Math.round((p.ref==='cl' ? g.yc : g.seat)*100)/100;
+  syncInputs(); refresh(false);
+}));
+$('rows').addEventListener('click', e=>{
+  const del = e.target.closest('[data-del]');
+  if(del){ e.stopPropagation(); const i=+del.dataset.del; if(rows.length<=1) return;
+    rows.splice(i,1); cur = Math.min(cur, rows.length-1); p = {...rows[cur]}; renderTable(); syncInputs(); refresh(true); return; }
+  const tr = e.target.closest('tr'); if(!tr) return;
+  cur = +tr.dataset.i; p = {...rows[cur]}; renderTable(); syncInputs(); refresh(true);
+});
+$('updRow').addEventListener('click',()=>{ if(check(p)) return; rows[cur] = {...p}; renderTable(); });
+$('addRow').addEventListener('click',()=>{
+  if(check(p)) return;
+  const n = rows.reduce((m,r)=>Math.max(m, parseInt(r.part.replace(/\D/g,''))||0),0)+1;
+  p = {...p, part:`JS-${String(n).padStart(2,'0')}`}; rows.push({...p}); cur = rows.length-1;
+  renderTable(); syncInputs(); refresh(false);
+});
+async function copy(btn, text, label){
+  try{ await navigator.clipboard.writeText(text); btn.textContent='Copied'; }catch(_){ btn.textContent='Copy blocked'; }
+  setTimeout(()=>btn.textContent=label,1500);
+}
+$('copyCsv').addEventListener('click', e=>{
+  const csv = ['Part,Shape,D,H,B,Height ref,Height,CL height,Cradle %,Clearance,Arm width,Depth,Tab width,Tab depth,Blank W,Blank H',
+    ...rows.map(r=>{ const g = geom(r); return [r.part,r.shape,r.D,r.H,r.B,r.ref==='cl'?'centreline':'underside',r.h,f1(g.yc),r.cap,r.clr,r.wall,r.tp,r.tw,r.td,f1(g.W),f1(g.top+r.td)].join(','); })].join('\n');
+  copy(e.currentTarget, csv, 'Copy CSV');
+});
+$('copyDxf').addEventListener('click', e=>{
+  if(check(p)) return;
+  const pts = geom(p).pts, r = x => (Math.round(x*1000)/1000).toString(), out = ['0','SECTION','2','ENTITIES'];
+  pts.forEach((a,i)=>{ const b = pts[(i+1)%pts.length]; out.push('0','LINE','8','CUT','10',r(a[0]),'20',r(a[1]),'30','0','11',r(b[0]),'21',r(b[1]),'31','0'); });
+  out.push('0','ENDSEC','0','EOF');
+  copy(e.currentTarget, out.join('\n')+'\n', 'Copy DXF');
+});
+
+renderTable(); syncInputs(); if(gl) resize(); refresh(true);
+</script>
+</body>
+</html>

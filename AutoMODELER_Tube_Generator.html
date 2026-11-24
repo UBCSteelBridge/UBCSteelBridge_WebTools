@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Tube Generator · UBC Steel Bridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout idea: a three-step workbook (Sections, Members, Export) under one header; the sheet is the page, the 3D view opens beside it on demand. */
+  :root{
+    color-scheme:light;
+    --paper:#ffffff; --paper-2:#f1f3f7; --surface:#ffffff; --ink:#061c5a; --ink-2:#34406a; --muted:#686e80;
+    --line:#d9dde6; --accent:#061c5a; --accent-ink:#061c5a; --on-accent:#ffffff; --view:#f1f3f7; --steel:#b4bcc9;
+    --ok:#1f6f4a; --ok-bg:#dcefe4; --warn:#7a5200; --warn-bg:#fbeec6; --err:#a1162b; --err-bg:#f9dfe2;
+    --head:'Archivo',system-ui,sans-serif; --body:'Archivo',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  [hidden]{display:none!important}
+  a{color:inherit}
+  .mono{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  header{border-bottom:1px solid var(--line);background:var(--surface)}
+  .in{max-width:1500px;margin:0 auto;padding:0 24px}
+  header .in{padding-top:16px;padding-bottom:14px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .back{text-decoration:none;color:var(--accent-ink);font-weight:500}
+  .back:hover{color:var(--accent-ink)}
+  h1{font-family:var(--head);font-size:1.5rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;text-wrap:balance;margin:4px 0 2px}
+  .sub{color:var(--muted);max-width:65ch}
+  .headact{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+  .btn{padding:8px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:700 .72rem var(--body);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+  .btn:hover{background:var(--ink);color:var(--paper)}
+  .btn.primary{background:var(--ink);color:var(--paper)}
+  .btn.primary:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .btn.quiet{border-color:var(--line);color:var(--ink-2);font-weight:500}
+  .btn.quiet:hover{background:var(--paper-2);color:var(--ink);border-color:var(--ink-2)}
+  .btn.armed{background:var(--err);border-color:var(--err);color:var(--surface)}
+  .btn:disabled{opacity:.45;cursor:default;pointer-events:none}
+
+  nav.tabs{border-bottom:1px solid var(--line);background:var(--surface)}
+  nav.tabs .in{display:flex;gap:4px;overflow-x:auto}
+  .tab{appearance:none;border:0;background:transparent;color:var(--ink-2);font:700 .78rem var(--body);letter-spacing:.1em;text-transform:uppercase;padding:11px 16px 9px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:8px}
+  .tab .n{font:500 .68rem var(--mono);color:var(--muted)}
+  .tab:hover{color:var(--ink)}
+  .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+  .tab .count{font:500 .68rem var(--mono);padding:1px 6px;background:var(--paper-2);color:var(--ink-2)}
+  .tab .count.bad{background:var(--err-bg);color:var(--err)}
+
+  main{max-width:1500px;margin:0 auto;padding:18px 24px 40px}
+  section.view{display:grid;gap:16px}
+  .panel{background:var(--surface);border:1px solid var(--line);min-width:0}
+  .panel>h2{font-family:var(--head);font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .panel>h2 small{font:400 .8rem var(--body);color:var(--muted);letter-spacing:0;text-transform:none}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .bar .sp{flex:1}
+  .hint{color:var(--muted);font-size:.84rem;max-width:80ch}
+  .hint kbd{font:500 .72rem var(--mono);border:1px solid var(--line);padding:0 4px;background:var(--paper)}
+  .two{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:16px;align-items:start}
+
+  /* Sheet */
+  .sheetwrap{overflow:auto;max-height:68vh}
+  table.grid{border-collapse:separate;border-spacing:0;font-size:.8rem;width:max-content;min-width:100%}
+  .grid th,.grid td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;height:28px}
+  .grid thead th{position:sticky;top:0;z-index:2;background:var(--paper-2);font:500 .64rem var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);padding:6px 8px;text-align:left;white-space:nowrap}
+  .grid thead tr.grp th{color:var(--muted);height:24px;padding:3px 8px;border-bottom-color:transparent}
+  .grid thead tr.cols th{top:24px;white-space:normal;vertical-align:bottom;line-height:1.25}
+  .grid th.rn{position:sticky;left:0;z-index:1;width:38px;min-width:38px;text-align:right;padding:0 7px;font:400 .66rem var(--mono);color:var(--muted);background:var(--paper-2);cursor:pointer;user-select:none}
+  .grid thead th.rn{z-index:3}
+  .grid tr.active th.rn{background:var(--ink);color:var(--paper)}
+  .grid tr.viewing th.rn{box-shadow:inset 3px 0 0 var(--accent)}
+  .grid td input[type=text],.grid td select{display:block;width:100%;height:27px;border:0;background:transparent;color:var(--ink);font:400 .8rem var(--mono);font-variant-numeric:tabular-nums;padding:0 8px;border-radius:0}
+  .grid td select{padding:0 4px;cursor:pointer}
+  .grid td.num input{text-align:right}
+  .grid td input.fx{font-style:italic}
+  .grid td.chk{text-align:center}
+  .grid td.chk input{width:15px;height:15px;accent-color:var(--ink);vertical-align:middle;cursor:pointer}
+  .grid td:focus-within{outline:2px solid var(--accent);outline-offset:-2px}
+  .grid td input:focus,.grid td select:focus{outline:0}
+  .grid td.calc{padding:0 8px;font:400 .78rem var(--mono);color:var(--ink-2);white-space:nowrap;background:var(--paper)}
+  .grid td.e{background:var(--err-bg)}
+  .grid td.w{background:var(--warn-bg)}
+  .grid tr.conflict td:not(.calc){background:var(--err-bg)}
+  .chip{display:inline-block;font:500 .66rem var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;margin-right:6px;vertical-align:1px}
+  .chip.ok{background:var(--ok-bg);color:var(--ok)}
+  .chip.er{background:var(--err-bg);color:var(--err)}
+  .chip.wa{background:var(--warn-bg);color:var(--warn)}
+  .chip.mu{background:var(--paper-2);color:var(--muted)}
+  .grid td.calc.status{font-family:var(--body);font-size:.8rem;min-width:230px}
+
+  /* Members + viewer */
+  .work{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+  .work.open{grid-template-columns:minmax(0,1fr) 400px}
+  .viewer{position:sticky;top:12px}
+  .viewport{position:relative;height:380px;background:var(--view)}
+  .viewport canvas{display:block;width:100%;height:100%}
+  .viewport .msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted);font-size:.9rem}
+  .viewbtns{position:absolute;right:8px;top:8px;display:flex;gap:4px}
+  .viewbtns button{padding:4px 8px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:500 .64rem var(--mono);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+  .viewbtns button:hover{border-color:var(--ink);color:var(--ink)}
+  dl.facts{display:grid;grid-template-columns:auto 1fr}
+  dl.facts dt,dl.facts dd{padding:6px 14px;border-top:1px solid var(--line);font-size:.84rem}
+  dl.facts dt{color:var(--ink-2)}
+  dl.facts dd{font-family:var(--mono);font-size:.8rem;text-align:right;font-variant-numeric:tabular-nums}
+  .viewer .note{padding:9px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
+
+  /* Export */
+  .result{font-size:.9rem;min-height:1.5em}
+  .result.good{color:var(--ok)}
+  .result.bad{color:var(--err)}
+  table.out{border-collapse:collapse;font:400 .76rem var(--mono);font-variant-numeric:tabular-nums;width:max-content;min-width:100%}
+  table.out th,table.out td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:5px 9px;white-space:nowrap;text-align:left}
+  table.out th{background:var(--paper-2);font-weight:500;color:var(--ink-2);position:sticky;top:0}
+  table.out td.r{text-align:right}
+  table.out td.sup{color:var(--muted)}
+  table.plain{border-collapse:collapse;width:100%;font-size:.84rem}
+  table.plain th,table.plain td{border-bottom:1px solid var(--line);padding:6px 14px;text-align:left;vertical-align:top}
+  table.plain th{font:500 .64rem var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  table.plain td.r,table.plain th.r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .empty{padding:14px;color:var(--muted);font-size:.86rem}
+  textarea.fallback{width:100%;height:150px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:400 .74rem var(--mono);padding:8px;white-space:pre;resize:vertical}
+  .confirm{background:var(--warn-bg);color:var(--ink);border-bottom:1px solid var(--line)}
+  .confirm .in{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;font-size:.9rem}
+  .confirm .sp{flex:1}
+  #saveFallback{display:block;max-width:1452px;margin:12px auto 0;width:calc(100% - 48px)}
+  footer{max-width:1500px;margin:0 auto;padding:0 24px 32px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.82rem}
+
+  @media (max-width:1150px){
+    .work.open{grid-template-columns:minmax(0,1fr)}
+    .work.open .viewer{order:-1;position:static}
+    .two{grid-template-columns:minmax(0,1fr)}
+  }
+  @media (max-width:560px){ .in,main,footer{padding-left:16px;padding-right:16px} .viewport{height:300px} }
+
+  /* UBC Steel Bridge brand bar: always white so the full-colour logo reads in both themes */
+  .brandbar{background:#ffffff;color:#000000;border-bottom:3px solid #061c5a}
+  .brandbar .bb-in{max-width:1500px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px 28px;flex-wrap:wrap}
+  .bb-logo{display:block;line-height:0}
+  .bb-logo img{display:block;height:44px;width:auto}
+  .bb-nav{display:flex;flex-wrap:wrap;gap:4px 24px}
+  .bb-nav a{font:600 .74rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#000000;text-decoration:none;padding:7px 0 5px;border-bottom:2px solid transparent}
+  .bb-nav a:hover{color:#061c5a;border-bottom-color:#061c5a}
+  .bb-nav a[aria-current="page"]{color:#061c5a;border-bottom-color:#061c5a}
+  .bb-nav a:focus-visible{outline:2px solid #061c5a;outline-offset:2px}
+  @media (max-width:560px){ .brandbar .bb-in{padding:10px 16px} .bb-logo img{height:30px} .bb-nav{gap:4px 16px} }
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div class="brandbar">
+  <div class="bb-in">
+    <a class="bb-logo" href="index.html" aria-label="UBC Steel Bridge tools home"><img src="assets/steelbridge-niik.png" alt="UBC Steel Bridge and niik steel" width="1200" height="221"></a>
+    <nav class="bb-nav" aria-label="Team tools"><a href="index.html">Tools</a><a href="AutoMODELER_Tube_Generator.html" aria-current="page">Tube generator</a><a href="Jig_Spacer_Generator.html">Jig spacer</a><a href="https://ubcsteelbridge.ca/" target="_blank" rel="noopener">Team site &#8599;</a></nav>
+  </div>
+</div>
+
+<header>
+  <div class="in">
+    <div>
+      <a class="back mono" href="index.html">&larr; Steel Bridge tools</a>
+      <h1>AutoMODELER tube generator</h1>
+      <div class="sub">Define the HSS sections, list every member in one sheet, then copy the table into the Inventor iPart.</div>
+    </div>
+    <div class="headact">
+      <span class="result" id="headResult" role="status"></span>
+      <button class="btn" type="button" id="openBtn">Open file</button>
+      <button class="btn" type="button" id="saveBtn">Save project</button>
+      <input type="file" id="openFile" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden>
+      <button class="btn primary" type="button" id="copyHead">Copy iPart table</button>
+    </div>
+  </div>
+</header>
+
+<div class="confirm" id="confirm" hidden role="alertdialog" aria-labelledby="confirmText">
+  <div class="in"><span id="confirmText"></span><span class="sp"></span><button class="btn primary" type="button" id="confirmYes">Replace</button><button class="btn quiet" type="button" id="confirmNo">Cancel</button></div>
+</div>
+<textarea class="fallback" id="saveFallback" readonly hidden aria-label="Project text to copy"></textarea>
+
+<nav class="tabs" aria-label="Steps">
+  <div class="in" role="tablist">
+    <button class="tab" role="tab" type="button" id="tab-sections" data-tab="sections" aria-controls="view-sections"><span class="n">1</span>Sections <span class="count" id="cnt-sections"></span></button>
+    <button class="tab" role="tab" type="button" id="tab-members" data-tab="members" aria-controls="view-members"><span class="n">2</span>Members <span class="count" id="cnt-members"></span></button>
+    <button class="tab" role="tab" type="button" id="tab-export" data-tab="export" aria-controls="view-export"><span class="n">3</span>Export <span class="count" id="cnt-export"></span></button>
+  </div>
+</nav>
+
+<main>
+  <!-- 1 Sections -->
+  <section class="view" id="view-sections" role="tabpanel" aria-labelledby="tab-sections" hidden>
+    <p class="hint">Enter each HSS size once. Dimensions are in inches. To bring sizes over from Excel, copy the cells, click the first cell here and press <kbd>Ctrl</kbd>+<kbd>V</kbd>.</p>
+    <div class="two">
+      <div class="panel">
+        <h2>Section sizes <small>SQ square &middot; HR rectangular &middot; HC round &middot; PL plate</small></h2>
+        <div class="sheetwrap" id="g-sections"></div>
+      </div>
+      <div class="panel">
+        <h2>Assemblies <small>optional, used for quantities</small></h2>
+        <div class="sheetwrap" id="g-assemblies"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 Members -->
+  <section class="view" id="view-members" role="tabpanel" aria-labelledby="tab-members" hidden>
+    <div class="bar">
+      <button class="btn primary" type="button" id="viewBtn">View current</button>
+      <button class="btn quiet" type="button" id="insRow">Insert row</button>
+      <button class="btn quiet" type="button" id="delRow">Delete row</button>
+      <button class="btn quiet" type="button" id="copySheet">Copy sheet</button>
+      <span class="sp"></span>
+      <span class="hint" id="memSummary"></span>
+    </div>
+    <div class="work" id="work">
+      <div class="panel">
+        <div class="sheetwrap" id="g-members"></div>
+      </div>
+      <aside class="panel viewer" id="viewer" hidden aria-label="Estimated model">
+        <h2><span id="vTitle">Estimated model</span>
+          <span class="bar">
+            <button class="btn quiet" type="button" id="vPrev" aria-label="Previous member">&uarr;</button>
+            <button class="btn quiet" type="button" id="vNext" aria-label="Next member">&darr;</button>
+            <button class="btn quiet" type="button" id="vClose">Close</button>
+          </span>
+        </h2>
+        <div class="viewport" id="viewport">
+          <div class="viewbtns">
+            <button type="button" data-view="iso">Iso</button>
+            <button type="button" data-view="elev">Elev</button>
+            <button type="button" data-view="side">Side</button>
+            <button type="button" data-view="top">Top</button>
+          </div>
+          <div class="msg" id="vMsg" hidden></div>
+        </div>
+        <dl class="facts" id="vFacts"></dl>
+        <div class="note">Estimate only; Inventor builds the real part. The view assumes the tubes this member meets run horizontally in the plane of dx and dy, with plain ends cut parallel to them.</div>
+      </aside>
+    </div>
+    <p class="hint">Columns match the Tube Generator sheet, so a block copied from Excel pastes straight in. <kbd>Enter</kbd> moves down, <kbd>Tab</kbd> moves right, <kbd>Ctrl</kbd>+<kbd>D</kbd> fills from the cell above. dx and dy accept arithmetic, fractions and feet-inches: <span style="font-family:var(--mono)">=2*12+3.25</span>, <span style="font-family:var(--mono)">3 25/64</span>, <span style="font-family:var(--mono)">2'-3 1/4"</span>.</p>
+  </section>
+
+  <!-- 3 Export -->
+  <section class="view" id="view-export" role="tabpanel" aria-labelledby="tab-export" hidden>
+    <div class="bar">
+      <button class="btn primary" type="button" id="copyTsv">Copy for iPart</button>
+      <button class="btn" type="button" id="copyCsv">Copy as CSV</button>
+      <button class="btn" type="button" id="saveCsv" hidden>Download CSV</button>
+      <span class="result" id="exResult" role="status"></span>
+    </div>
+    <textarea class="fallback" id="fallback" readonly hidden aria-label="Table text to copy"></textarea>
+    <div class="panel">
+      <h2>iPart table <small id="exCount"></small></h2>
+      <div class="sheetwrap" id="exTable"></div>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <h2>Rows to look at <small id="issueCount"></small></h2>
+        <div id="issues"></div>
+      </div>
+      <div class="panel">
+        <h2>Stock estimate <small>cut length &times; quantity</small></h2>
+        <div id="qty"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="credit">UBC Steel Bridge Team tools &middot; built by AJ Navalta</span>
+  <span>Entries are kept in this browser only. Save project writes all three sheets to one CSV; Open file reads it back, or rebuilds the sheets from an iPart table CSV.</span>
+  <button class="btn quiet" type="button" id="loadExample">Load example</button>
+  <button class="btn quiet" type="button" id="clearAll">Clear everything</button>
+</footer>
+
+<script>
+/* AutoMODELER core: pure logic, no DOM. Mirrors WriteExportTable / SortExport in Automated_Drafting_REV1. */
+const AM = (() => {
+  const TYPES = ['SQ', 'HR', 'HC', 'PL'];
+  const HEADERS = [
+    'Member<defaultRow>1</defaultRow><filename></filename>', 'Part Number [Project]', 'SectionType',
+    'width', 'depth', 'thickness', 'dx', 'dy', 'BTCut', 'TTCut', 'CreateSquare', 'CreateCircle',
+    'CutStraight', 'CutAngled', 'isTTStraight', 'isBTStraight', 'isTTAngled', 'isBTAngled'
+  ];
+
+  /* ---------- Numbers ---------- */
+  // Accepts plain numbers, Excel-style arithmetic (=2*12+3.25), mixed fractions (3 25/64) and feet-inches (2'-3 1/4").
+  function parseExpr(s) {
+    let i = 0;
+    const ws = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+    function num() {
+      ws();
+      const m = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i));
+      if (!m) throw new Error('number');
+      i += m[0].length;
+      return parseFloat(m[0]);
+    }
+    function atom() {
+      ws();
+      if (s[i] === '(') { i++; const v = add(); ws(); if (s[i] !== ')') throw new Error(')'); i++; return v; }
+      if (s[i] === '-') { i++; return -atom(); }
+      if (s[i] === '+') { i++; return atom(); }
+      return num();
+    }
+    function pow() { const v = atom(); ws(); if (s[i] === '^') { i++; return Math.pow(v, pow()); } return v; }
+    function mul() {
+      let v = pow();
+      for (;;) { ws(); if (s[i] === '*') { i++; v *= pow(); } else if (s[i] === '/') { i++; v /= pow(); } else return v; }
+    }
+    function add() {
+      let v = mul();
+      for (;;) { ws(); if (s[i] === '+') { i++; v += mul(); } else if (s[i] === '-') { i++; v -= mul(); } else return v; }
+    }
+    const v = add(); ws();
+    if (i < s.length) throw new Error('trailing');
+    return v;
+  }
+  function evalNum(raw) {
+    if (raw == null) return { blank: true };
+    let s = String(raw).trim();
+    if (s === '') return { blank: true };
+    if (s[0] === '=') s = s.slice(1);
+    s = s.replace(/["”″]/g, '');
+    s = s.replace(/(\d+(?:\.\d+)?)\s*(?:'|′|’)\s*-?\s*/g, '$1*12+');
+    if (/\+\s*$/.test(s)) s += '0';
+    s = s.replace(/(\d+)\s+(\d+)\s*\/\s*(\d+)/g, '($1+$2/$3)');
+    try {
+      const v = parseExpr(s);
+      return Number.isFinite(v) ? { v } : { err: true };
+    } catch (e) { return { err: true }; }
+  }
+  const fmt = n => String(+Number(n).toPrecision(12));
+  const yes = v => v === true || /^(yes|y|true|1)$/i.test(String(v == null ? '' : v).trim());
+
+  /* ---------- Sections ---------- */
+  function sectionName(type, x, y, t) { return `${type} ${fmt(x)}x${fmt(y)}x${fmt(t)}`; }
+  // rows: [{type,x,y,t,notes}] raw strings. Returns per-row info plus the lookup used by the members sheet.
+  function evalSections(rows) {
+    const info = rows.map(r => {
+      const type = String(r.type || '').trim().toUpperCase();
+      const x = evalNum(r.x), y = evalNum(r.y), t = evalNum(r.t);
+      const empty = !type && x.blank && y.blank && t.blank && !String(r.notes || '').trim();
+      const errs = {};
+      if (!empty) {
+        if (!TYPES.includes(type)) errs.type = type ? 'Type must be SQ, HR, HC or PL' : 'Pick a type';
+        for (const [k, n] of [['x', x], ['y', y], ['t', t]]) {
+          if (n.blank) errs[k] = 'Required';
+          else if (n.err) errs[k] = 'Not a number';
+          else if (!(n.v > 0)) errs[k] = 'Must be greater than 0';
+        }
+        if (!errs.x && !errs.y && !errs.t && type !== 'PL' && t.v * 2 > Math.min(x.v, y.v)) errs.t = 'Wall is thicker than half the section';
+        if (!errs.x && !errs.y && type === 'HC' && Math.abs(x.v - y.v) > 1e-9) errs.y = 'Round section: x′ and y′ are both the diameter';
+        if (!errs.x && !errs.y && type === 'SQ' && Math.abs(x.v - y.v) > 1e-9) errs.y = 'Square section: x′ and y′ must match';
+      }
+      const ok = !empty && Object.keys(errs).length === 0;
+      return { empty, ok, errs, type, x: x.v, y: y.v, t: t.v, name: ok ? sectionName(type, x.v, y.v, t.v) : '' };
+    });
+    const dict = new Map();
+    info.forEach((s, i) => { if (s.ok && !dict.has(s.name)) dict.set(s.name, { ...s, row: i }); else if (s.ok) s.repeat = true; });
+    const order = { SQ: 0, HR: 1, HC: 2, PL: 3 };
+    const list = [...dict.values()].sort((a, b) => order[a.type] - order[b.type] || a.x - b.x || a.y - b.y || a.t - b.t);
+    return { info, dict, list };
+  }
+  // Matches pasted section text loosely (case, spacing, × for x).
+  function normSection(s) { return String(s || '').trim().toUpperCase().replace(/×/g, 'X').replace(/\s*X\s*/g, 'X').replace(/\s+/g, ' '); }
+  function findSection(dict, raw) {
+    if (dict.has(raw)) return dict.get(raw);
+    const k = normSection(raw);
+    if (!k) return null;
+    for (const [name, sec] of dict) if (normSection(name) === k) return sec;
+    return null;
+  }
+
+  /* ---------- Members ---------- */
+  const MEMBER_KEYS = ['asm', 'qty', 'name', 'sec', 'ang', 'dx', 'dy', 't2t', 'tthk', 'b2t', 'bthk'];
+  function memberEmpty(m) {
+    return !MEMBER_KEYS.some(k => (k === 'ang' || k === 't2t' || k === 'b2t') ? yes(m[k]) : String(m[k] == null ? '' : m[k]).trim() !== '');
+  }
+  // One row of the iPart table, exactly as WriteExportTable builds it (blank raw values act as 0 in the dx/dy adjustment).
+  function transform(name, sec, f) {
+    const o = new Array(18);
+    o[0] = name; o[1] = name; o[2] = sec.type; o[3] = sec.x; o[4] = sec.y; o[5] = sec.t;
+    o[6] = f.dx != null ? f.dx : f.dy;
+    o[7] = f.dy != null ? f.dy : f.dx;
+    const dflt = Math.min(sec.x, sec.y);
+    o[8] = f.bthk != null ? f.bthk : dflt;
+    o[9] = f.tthk != null ? f.tthk : dflt;
+    const round = sec.type === 'HC';
+    o[10] = round ? 'Suppress' : 'Compute';
+    o[11] = round ? 'Compute' : 'Suppress';
+    const C = b => (b ? 'Compute' : 'Suppress');
+    if (f.ang) { o[12] = 'Suppress'; o[13] = 'Compute'; o[14] = 'Suppress'; o[15] = 'Suppress'; o[16] = C(f.t2t); o[17] = C(f.b2t); }
+    else { o[12] = 'Compute'; o[13] = 'Suppress'; o[14] = C(f.t2t); o[15] = C(f.b2t); o[16] = 'Suppress'; o[17] = 'Suppress'; }
+    const dx0 = f.dx || 0, dy0 = f.dy;
+    if (f.t2t) { const th = f.tthk || 0; o[6] += dx0 / dy0 * 0.5 * th; o[7] += th * 0.5; }
+    if (f.b2t) { const th = f.bthk || 0; o[6] += dx0 / dy0 * 0.5 * th; o[7] += th * 0.5; }
+    return o;
+  }
+  function evalMembers(members, secEval, assemblies) {
+    const asmQty = new Map();
+    (assemblies || []).forEach(a => {
+      const n = String(a.name || '').trim(); if (!n) return;
+      const q = evalNum(a.qty);
+      if (!asmQty.has(n.toLowerCase())) asmQty.set(n.toLowerCase(), q.v != null ? q.v : 1);
+    });
+    const firstByName = new Map();
+    const rows = members.map((m, i) => {
+      const r = { i, empty: memberEmpty(m), errs: {}, warns: {}, status: false, out: null, note: '' };
+      if (r.empty) return r;
+      const name = String(m.name || '').trim(), secRaw = String(m.sec || '').trim();
+      const n = { dx: evalNum(m.dx), dy: evalNum(m.dy), tthk: evalNum(m.tthk), bthk: evalNum(m.bthk), qty: evalNum(m.qty) };
+      const f = { ang: yes(m.ang), t2t: yes(m.t2t), b2t: yes(m.b2t) };
+      for (const k of ['dx', 'dy', 'tthk', 'bthk']) {
+        f[k] = n[k].v != null ? n[k].v : null;
+        if (n[k].err) r.errs[k] = 'Not a number';
+        else if (f[k] != null && !(f[k] > 0)) r.errs[k] = 'Must be greater than 0';
+      }
+      if (!name) r.errs.name = 'Name it, or it will not be modelled';
+      const sec = secRaw ? findSection(secEval.dict, secRaw) : null;
+      if (!secRaw) r.errs.sec = 'Pick a section';
+      else if (!sec) r.errs.sec = 'This section no longer exists';
+      if (!r.errs.dx && !r.errs.dy) {
+        if (f.dx == null && f.dy == null) { r.errs.dy = 'Enter dx or dy'; }
+        else if ((f.t2t || f.b2t) && f.dy == null) r.errs.dy = 'dy is required when an end meets a tube';
+      }
+      if (n.qty.err || (n.qty.v != null && !(n.qty.v > 0))) r.warns.qty = 'Quantity ignored: not a positive number';
+      const asm = String(m.asm || '').trim();
+      if (asm && !asmQty.has(asm.toLowerCase())) r.warns.asm = 'Assembly not in the list: assembly qty taken as 1';
+      r.sec = sec; r.name = name; r.f = f;
+      r.qty = (n.qty.v > 0 ? n.qty.v : 1) * (asm && asmQty.has(asm.toLowerCase()) ? asmQty.get(asm.toLowerCase()) : 1);
+      r.valid = Object.keys(r.errs).length === 0;
+      if (r.valid) {
+        if (!f.ang && f.dx != null && f.dy != null && Math.abs(f.dx - f.dy) > 1e-9) r.warns.dx = r.warns.dy = 'Straight member with dx ≠ dy: which length is it?';
+        if (f.ang && (f.dx == null || f.dy == null)) r.warns[f.dx == null ? 'dx' : 'dy'] = 'Angled with one of dx, dy blank: treated as 45°';
+        if (f.t2t && f.tthk == null) r.warns.tthk = 'Blank: cope defaults to min(x′, y′) and the length is not extended';
+        if (f.b2t && f.bthk == null) r.warns.bthk = 'Blank: cope defaults to min(x′, y′) and the length is not extended';
+        r.out = transform(name, sec, f);
+        r.cmp = [name.toLowerCase(), sec.name, f.ang, f.dx, f.dy, f.bthk, f.t2t, f.tthk, f.b2t].join('|');
+      }
+      // First occurrence of a name wins (Status column); later rows are duplicates.
+      if (name) {
+        const k = name.toLowerCase();
+        if (!firstByName.has(k)) firstByName.set(k, r); else r.dupOf = firstByName.get(k);
+      }
+      return r;
+    });
+    rows.forEach(r => {
+      if (r.empty) return;
+      if (r.dupOf) {
+        const a = r.dupOf;
+        if (r.valid && a.valid && r.cmp === a.cmp) r.note = `Same part as row ${a.i + 1}: exported once`;
+        else { r.conflict = true; a.conflict = true; r.conflictWith = a.i; if (a.conflictWith == null) a.conflictWith = r.i; }
+      }
+      r.status = !!(r.valid && !r.dupOf);
+    });
+    return rows;
+  }
+
+  /* ---------- Export ---------- */
+  // Excel's A-Z text sort: numbers first, then text ignoring case, hyphens and apostrophes.
+  function xlCompare(a, b) {
+    const na = /^-?\d+(\.\d+)?$/.test(a), nb = /^-?\d+(\.\d+)?$/.test(b);
+    if (na && nb) return parseFloat(a) - parseFloat(b);
+    if (na !== nb) return na ? -1 : 1;
+    const ka = a.toLowerCase().replace(/['-]/g, ''), kb = b.toLowerCase().replace(/['-]/g, '');
+    return ka < kb ? -1 : ka > kb ? 1 : a < b ? -1 : a > b ? 1 : 0;
+  }
+  function exportRows(evald) {
+    const body = evald.filter(r => r.status).map(r => r.out.map(v => (typeof v === 'number' ? +v.toPrecision(12) : v)));
+    body.sort((p, q) => xlCompare(String(p[0]), String(q[0])));
+    const seen = new Set();
+    return body.filter(r => { const k = r.join('\u0001'); if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+  const cellText = v => (typeof v === 'number' ? fmt(v) : String(v == null ? '' : v));
+  function toTSV(rows) { return rows.map(r => r.map(v => cellText(v).replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\r\n') + '\r\n'; }
+  function toCSV(rows) {
+    const q = s => (/[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s);
+    return rows.map(r => r.map(v => q(cellText(v))).join(',')).join('\r\n') + '\r\n';
+  }
+  function parseClipboard(text) {
+    const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+    while (lines.length && lines[lines.length - 1] === '') lines.pop();
+    return lines.map(l => l.split('\t'));
+  }
+
+  /* ---------- Estimated solid ---------- */
+  // Section outline, counter-clockwise. u = across the truss plane (x′), v = in the truss plane (y′).
+  // Outer and inner loops share one parameterisation so they pair point for point.
+  function loop(w, h, r, round) {
+    const pts = [];
+    if (round) {
+      const N = 96, R = w / 2;
+      for (let i = 0; i < N; i++) { const a = i / N * 2 * Math.PI; pts.push({ u: R * Math.cos(a), v: R * Math.sin(a) }); }
+      return pts;
+    }
+    const NA = 6, NE = 14, cx = w / 2 - r, cy = h / 2 - r;
+    const c = [[cx, cy], [-cx, cy], [-cx, -cy], [cx, -cy]];
+    for (let k = 0; k < 4; k++) {
+      const [x0, y0] = c[k];
+      for (let i = 0; i <= NA; i++) { const a = (k + i / NA) * Math.PI / 2; pts.push({ u: x0 + r * Math.cos(a), v: y0 + r * Math.sin(a) }); }
+      const p = pts[pts.length - 1], [x1, y1] = c[(k + 1) % 4], a1 = (k + 1) * Math.PI / 2;
+      const q = { u: x1 + r * Math.cos(a1), v: y1 + r * Math.sin(a1) };
+      for (let i = 1; i < NE; i++) pts.push({ u: p.u + (q.u - p.u) * i / NE, v: p.v + (q.v - p.v) * i / NE });
+    }
+    return pts;
+  }
+  function outline(sec) {
+    const round = sec.type === 'HC', w = sec.x, h = round ? sec.x : sec.y, t = sec.t;
+    const hollow = sec.type !== 'PL' && 2 * t < Math.min(w, h) - 1e-9;
+    const ro = round ? 0 : (hollow ? Math.min(2 * t, Math.min(w, h) / 2) : 0);
+    return { outer: loop(w, h, ro, round), inner: hollow ? loop(w - 2 * t, h - 2 * t, Math.max(ro - t, 0), round) : null };
+  }
+  // Builds the member from one exported row. Assumes the tubes it frames into run horizontally in the truss plane:
+  // plain ends are cut on y = 0 and y = dy; a tube end is coped by a cylinder of diameter BTCut / TTCut centred on those lines.
+  function solid(out) {
+    const sec = { type: out[2], x: out[3], y: out[4], t: out[5] };
+    const angled = out[13] === 'Compute';
+    const tt = out[14] === 'Compute' || out[16] === 'Compute', bt = out[15] === 'Compute' || out[17] === 'Compute';
+    const run = angled ? out[6] : 0, rise = angled ? out[7] : Math.max(out[6], out[7]);
+    if (!(rise > 0) || !(run >= 0)) return { ok: false, reason: 'dy must be greater than 0' };
+    const len = Math.hypot(run, rise), sn = rise / len, cs = run / len;
+    const Rt = out[9] / 2, Rb = out[8] / 2;
+    const yb = u => (bt && Math.abs(u) < Rb ? Math.sqrt(Rb * Rb - u * u) : 0);
+    const yt = u => rise - (tt && Math.abs(u) < Rt ? Math.sqrt(Rt * Rt - u * u) : 0);
+    const { outer, inner } = outline(sec);
+    let smin = Infinity, smax = -Infinity, bad = false;
+    const ring = (pts, top, track) => pts.map(p => {
+      const s = ((top ? yt(p.u) : yb(p.u)) - p.v * cs) / sn;
+      if (track) { if (top) smax = Math.max(smax, s); else smin = Math.min(smin, s); }
+      return { x: s * cs - p.v * sn, y: s * sn + p.v * cs, z: p.u, s };
+    });
+    const g = { ok: true, angled, tt, bt, run, rise, len, Rt, Rb, sec };
+    g.outerB = ring(outer, false, true); g.outerT = ring(outer, true, true);
+    g.innerB = inner && ring(inner, false); g.innerT = inner && ring(inner, true);
+    for (let i = 0; i < outer.length; i++) if (g.outerT[i].s - g.outerB[i].s <= 1e-6) bad = true;
+    if (bad) return { ok: false, reason: 'Too short for this section: the end cuts cross' };
+    g.stock = smax - smin;
+    g.angle = Math.atan2(rise, run) * 180 / Math.PI;
+    return g;
+  }
+  // Stock length per section: every valid row counts (the same part can sit in several assemblies).
+  function quantities(evald, secEval) {
+    const tot = new Map(secEval.list.map(s => [s.name, { name: s.name, len: 0, parts: 0 }]));
+    evald.forEach(r => {
+      if (r.empty || !r.valid) return;
+      const g = solid(r.out); if (!g.ok) return;
+      const e = tot.get(r.sec.name); e.len += g.stock * r.qty; e.parts += r.qty;
+    });
+    return [...tot.values()];
+  }
+
+  /* ---------- Save and re-open ---------- */
+  function parseCSV(text) {
+    text = String(text).replace(/^﻿/, '');
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) {
+        if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+  const PROJECT_TAG = '#AutoMODELER project';
+  const SEC_COLS = [['type', 'TYPE'], ['x', "x'"], ['y', "y'"], ['t', 't'], ['notes', 'Notes']];
+  const ASM_COLS = [['name', 'Name'], ['qty', 'QTY']];
+  const MEM_COLS = [['asm', 'From Assembly'], ['qty', 'Qty per Assembly'], ['name', 'Inventor File Name'], ['sec', 'Part Section'], ['ang', 'isAngled'], ['dx', 'dx'], ['dy', 'dy'], ['t2t', 'T2T'], ['tthk', 'Tthk'], ['b2t', 'B2T'], ['bthk', 'Bthk']];
+  const CHECKS = ['ang', 't2t', 'b2t'];
+  const filled = r => Object.values(r).some(v => String(v == null ? '' : v).trim() !== '');
+  // One CSV holding all three sheets, raw entries kept (expressions stay expressions).
+  function projectCSV(state) {
+    const block = (tag, cols, rows) => [[tag], cols.map(c => c[1]), ...rows.filter(filled).map(r => cols.map(([k]) => {
+      const v = String(r[k] == null ? '' : r[k]).trim();
+      return CHECKS.includes(k) && cols === MEM_COLS ? (yes(v) ? 'YES' : 'NO') : v;
+    }))];
+    const rows = [[PROJECT_TAG, 'v1'], ...block('#SECTIONS', SEC_COLS, state.sections), [], ...block('#ASSEMBLIES', ASM_COLS, state.assemblies || []), [], ...block('#MEMBERS', MEM_COLS, state.members)];
+    return toCSV(rows);
+  }
+  function readBlocks(rows) {
+    const out = { sections: [], assemblies: [], members: [] };
+    const map = { '#SECTIONS': ['sections', SEC_COLS], '#ASSEMBLIES': ['assemblies', ASM_COLS], '#MEMBERS': ['members', MEM_COLS] };
+    let cur = null, head = null;
+    rows.forEach(r => {
+      const a = String(r[0] || '').trim();
+      if (map[a.toUpperCase()]) { cur = map[a.toUpperCase()]; head = null; return; }
+      if (!cur || a.startsWith('#')) return;
+      if (!head) { head = r.map(h => String(h).trim().toLowerCase()); return; }
+      const o = {};
+      cur[1].forEach(([k, label], i) => {
+        const j = head.indexOf(label.toLowerCase());
+        let v = String(r[j >= 0 ? j : i] == null ? '' : r[j >= 0 ? j : i]).trim();
+        if (CHECKS.includes(k) && cur[0] === 'members') v = yes(v) ? 'YES' : '';
+        o[k] = v;
+      });
+      if (filled(o)) out[cur[0]].push(o);
+    });
+    return out;
+  }
+  // Rebuilds sheet rows from an iPart table, undoing the tube-to-tube length adjustment.
+  function fromIpart(rows) {
+    const secs = new Map(), members = [];
+    rows.slice(1).forEach(r => {
+      const name = String(r[0] || '').trim(); if (!name) return;
+      const type = String(r[2] || '').trim().toUpperCase(), [x, y, t, o6, o7, bt, tt] = [3, 4, 5, 6, 7, 8, 9].map(i => parseFloat(r[i]));
+      if (![x, y, t, o6, o7].every(Number.isFinite)) return;
+      const sname = sectionName(type, x, y, t);
+      if (!secs.has(sname)) secs.set(sname, { type, x: fmt(x), y: fmt(y), t: fmt(t), notes: '' });
+      const C = i => String(r[i] || '').trim().toLowerCase() === 'compute';
+      const ang = C(13), t2t = ang ? C(16) : C(14), b2t = ang ? C(17) : C(15), dflt = Math.min(x, y);
+      const tthk = t2t ? tt : (Math.abs(tt - dflt) < 1e-12 ? null : tt);
+      const bthk = b2t ? bt : (Math.abs(bt - dflt) < 1e-12 ? null : bt);
+      const sum = (t2t ? tthk || 0 : 0) + (b2t ? bthk || 0 : 0);
+      const dy = o7 - sum / 2;
+      let dx = o6 / (1 + 0.5 * sum / dy);
+      if (!ang && Math.abs(o6 - dy) < 1e-9) dx = null;
+      const s = v => (v == null || !Number.isFinite(v) ? '' : fmt(+v.toPrecision(12)));
+      members.push({ asm: '', qty: '', name, sec: sname, ang: ang ? 'YES' : '', dx: s(dx), dy: s(dy), t2t: t2t ? 'YES' : '', tthk: s(tthk), b2t: b2t ? 'YES' : '', bthk: s(bthk) });
+    });
+    return { sections: [...secs.values()], assemblies: [], members };
+  }
+  // Accepts a saved project, or a CSV / pasted iPart table.
+  function importText(text) {
+    const t = String(text);
+    const firstLine = t.split(/\r?\n/)[0];
+    const rows = (firstLine.includes('\t') ? parseClipboard(t) : parseCSV(t)).filter(r => r.some(c => String(c).trim() !== ''));
+    if (!rows.length) return { error: 'The file is empty.' };
+    const first = String(rows[0][0] || '').trim();
+    if (first.toLowerCase() === PROJECT_TAG.toLowerCase() || rows.some(r => /^#(SECTIONS|MEMBERS)$/i.test(String(r[0] || '').trim()))) {
+      const p = readBlocks(rows);
+      return { kind: 'project', ...p };
+    }
+    if (/^member/i.test(first) && rows[0].length >= 18) return { kind: 'ipart', ...fromIpart(rows) };
+    return { error: 'This file is not an AutoMODELER project or an iPart table.' };
+  }
+
+  return { TYPES, HEADERS, parseCSV, projectCSV, importText, fromIpart, MEMBER_KEYS, evalNum, fmt, yes, sectionName, evalSections, findSection, memberEmpty, transform, evalMembers, exportRows, xlCompare, toTSV, toCSV, parseClipboard, outline, solid, quantities };
+})();
+
+</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const KEY = 'automodeler.tubegen.v1';
+
+  /* ---------- State ---------- */
+  const EXAMPLE = {
+    sections: [
+      { type: 'HC', x: '0.5', y: '0.5', t: '0.065', notes: '' },
+      { type: 'SQ', x: '1', y: '1', t: '0.065', notes: '' },
+      { type: 'HR', x: '0.5', y: '1', t: '0.065', notes: '' },
+    ],
+    assemblies: [{ name: 'Top-1', qty: '1' }, { name: 'Deep-1', qty: '2' }],
+    members: [
+      { asm: 'Top-1', qty: '1', name: 'P9-5', sec: 'HR 0.5x1x0.065', ang: '', dx: '', dy: '=2*12+3.25', t2t: '', tthk: '', b2t: '', bthk: '' },
+      { asm: '', qty: '', name: 'P5-6', sec: 'SQ 1x1x0.065', ang: '', dx: '', dy: '27.25', t2t: '', tthk: '', b2t: '', bthk: '' },
+      { asm: '', qty: '', name: 'P2-6', sec: 'HC 0.5x0.5x0.065', ang: 'YES', dx: '=3+25/64', dy: '4.25', t2t: '', tthk: '', b2t: '', bthk: '' },
+      { asm: '', qty: '', name: 'P2-2', sec: 'HC 0.5x0.5x0.065', ang: '', dx: '', dy: '4.25', t2t: '', tthk: '', b2t: '', bthk: '' },
+    ],
+  };
+  const clone = o => JSON.parse(JSON.stringify(o));
+  let state = null;
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.members) && Array.isArray(s.sections)) state = s; } catch (e) {}
+  if (!state) state = clone(EXAMPLE);
+  state.assemblies = state.assemblies || [];
+  let saveT = 0;
+  function save() {
+    clearTimeout(saveT);
+    saveT = setTimeout(() => {
+      const trim = (rows, empty) => { let n = rows.length; while (n && empty(rows[n - 1])) n--; return rows.slice(0, n); };
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          sections: trim(state.sections, r => !Object.values(r).some(v => String(v || '').trim())),
+          assemblies: trim(state.assemblies, r => !Object.values(r).some(v => String(v || '').trim())),
+          members: trim(state.members, AM.memberEmpty),
+        }));
+      } catch (e) {}
+    }, 400);
+  }
+
+  /* ---------- Sheet component ---------- */
+  class Grid {
+    constructor(o) {
+      Object.assign(this, o);
+      this.active = { r: 0, c: 0 };
+      this.table = document.createElement('table');
+      this.table.className = 'grid';
+      this.host.append(this.table);
+      this.edit = this.cols.filter(c => c.type !== 'calc');
+      this.table.addEventListener('focusin', e => this.onFocus(e));
+      this.table.addEventListener('focusout', e => this.onBlur(e));
+      this.table.addEventListener('input', e => this.onInput(e));
+      this.table.addEventListener('change', e => this.onCommit(e));
+      this.table.addEventListener('keydown', e => this.onKey(e));
+      this.table.addEventListener('click', e => { const th = e.target.closest('tbody th.rn'); if (th) this.focusCell(+th.parentNode.dataset.r, 0); });
+      this.render();
+    }
+    get rows() { return this.get(); }
+    blank() { const o = {}; this.edit.forEach(c => (o[c.key] = '')); return o; }
+    isEmpty(row) { return !this.edit.some(c => String(row[c.key] == null ? '' : row[c.key]).trim() !== ''); }
+    pad() {
+      let last = -1;
+      this.rows.forEach((r, i) => { if (!this.isEmpty(r)) last = i; });
+      const want = Math.max(this.minRows, last + 1 + 6);
+      while (this.rows.length < want) this.rows.push(this.blank());
+      this.lastUsed = last;
+    }
+    id(r, key) { return `${this.gid}-${r}-${key}`; }
+    render() {
+      this.pad();
+      const groups = this.groups ? `<tr class="grp"><th class="rn"></th>${this.groups.map(g => `<th colspan="${g[1]}">${esc(g[0])}</th>`).join('')}</tr>` : '';
+      const head = `<tr class="cols"><th class="rn">#</th>${this.cols.map(c => `<th style="min-width:${c.w}px" title="${esc(c.tip || '')}">${esc(c.label)}</th>`).join('')}</tr>`;
+      this.table.innerHTML = `<thead>${groups}${head}</thead><tbody></tbody>`;
+      if (!this.groups) this.table.querySelectorAll('thead tr.cols th').forEach(th => (th.style.top = '0'));
+      this.body = this.table.tBodies[0];
+      this.body.innerHTML = this.rows.map((_, r) => this.rowHTML(r)).join('');
+      this.rows.forEach((_, r) => this.fillRow(r));
+    }
+    rowHTML(r) {
+      return `<tr data-r="${r}"><th class="rn" scope="row">${r + 1}</th>${this.cols.map(c => {
+        const id = this.id(r, c.key), lab = `${c.label} row ${r + 1}`;
+        if (c.type === 'calc') return `<td class="calc ${c.cls || ''}" id="${id}"></td>`;
+        if (c.type === 'check') return `<td class="chk"><input type="checkbox" id="${id}" data-k="${c.key}" aria-label="${esc(lab)}"></td>`;
+        if (c.type === 'select') return `<td class="sel"><select id="${id}" data-k="${c.key}" aria-label="${esc(lab)}"></select></td>`;
+        return `<td class="${c.type}"><input type="text" size="1" id="${id}" data-k="${c.key}" autocomplete="off" spellcheck="false" aria-label="${esc(lab)}"></td>`;
+      }).join('')}</tr>`;
+    }
+    shown(raw) {
+      const s = String(raw == null ? '' : raw).trim();
+      if (s === '' || /^-?\d*\.?\d+$/.test(s)) return [s, false];
+      const e = AM.evalNum(s);
+      return e.v != null ? [AM.fmt(e.v), true] : [s, false];
+    }
+    fillCell(r, c) {
+      const el = $(this.id(r, c.key)), row = this.rows[r];
+      if (!el || c.type === 'calc') return;
+      const v = row[c.key] == null ? '' : row[c.key];
+      if (c.type === 'check') el.checked = AM.yes(v);
+      else if (c.type === 'select') {
+        const opts = c.options(row), cur = String(v);
+        const list = opts.includes(cur) || cur === '' ? opts : [...opts, cur];
+        el.innerHTML = `<option value=""></option>` + list.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+        el.value = cur;
+      } else if (c.type === 'num' && document.activeElement !== el) {
+        const [txt, fx] = this.shown(v);
+        el.value = txt; el.classList.toggle('fx', fx); el.title = fx ? String(v) : '';
+      } else if (document.activeElement !== el || el.value !== String(v)) el.value = v;
+    }
+    fillRow(r) { this.edit.forEach(c => this.fillCell(r, c)); }
+    refreshSelects() { this.rows.forEach((_, r) => this.edit.forEach(c => { if (c.type === 'select') this.fillCell(r, c); })); }
+    cellOf(el) {
+      if (!el || !el.dataset || !el.dataset.k) return null;
+      const tr = el.closest('tr'); if (!tr || !this.body.contains(tr)) return null;
+      const c = this.edit.findIndex(x => x.key === el.dataset.k);
+      return { r: +tr.dataset.r, c, col: this.edit[c], el };
+    }
+    setActive(r) {
+      const old = this.body.querySelector('tr.active'); if (old) old.classList.remove('active');
+      const tr = this.body.rows[r]; if (tr) tr.classList.add('active');
+    }
+    onFocus(e) {
+      const t = this.cellOf(e.target); if (!t) return;
+      this.active = { r: t.r, c: t.c };
+      this.setActive(t.r);
+      if (t.col.type === 'num') { t.el.value = this.rows[t.r][t.col.key] || ''; t.el.classList.remove('fx'); }
+      if (t.el.select && t.el.type === 'text') t.el.select();
+      if (this.onActive) this.onActive(t.r, t.col.key);
+    }
+    onBlur(e) { const t = this.cellOf(e.target); if (t && t.col.type === 'num') this.fillCell(t.r, t.col); }
+    onInput(e) {
+      const t = this.cellOf(e.target); if (!t || t.el.type !== 'text') return;
+      this.rows[t.r][t.col.key] = t.el.value;
+      this.touched(t.r, t.col.key, false);
+    }
+    onCommit(e) {
+      const t = this.cellOf(e.target); if (!t) return;
+      if (t.col.type === 'check') this.rows[t.r][t.col.key] = t.el.checked ? 'YES' : '';
+      else if (t.col.type === 'select') this.rows[t.r][t.col.key] = t.el.value;
+      this.touched(t.r, t.col.key, true);
+    }
+    touched(r, key, commit) {
+      if (r >= this.rows.length - 3) this.grow();
+      if (this.onChange) this.onChange(r, key, commit);
+    }
+    grow() {
+      const from = this.rows.length;
+      for (let i = 0; i < 10; i++) this.rows.push(this.blank());
+      this.body.insertAdjacentHTML('beforeend', this.rows.slice(from).map((_, i) => this.rowHTML(from + i)).join(''));
+      for (let r = from; r < this.rows.length; r++) this.fillRow(r);
+    }
+    focusCell(r, c) {
+      r = Math.max(0, Math.min(this.rows.length - 1, r)); c = Math.max(0, Math.min(this.edit.length - 1, c));
+      const el = $(this.id(r, this.edit[c].key)); if (el) el.focus();
+    }
+    onKey(e) {
+      const t = this.cellOf(e.target); if (!t) return;
+      const el = t.el, text = el.type === 'text', sel = el.tagName === 'SELECT';
+      const go = (dr, dc) => { e.preventDefault(); if (t.r + dr >= this.rows.length) this.grow(); this.focusCell(t.r + dr, t.c + dc); };
+      if (e.key === 'Enter') return go(e.shiftKey ? -1 : 1, 0);
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (t.r > 0) { this.rows[t.r][t.col.key] = this.rows[t.r - 1][t.col.key]; this.fillCell(t.r, t.col); if (text) el.value = this.rows[t.r][t.col.key]; this.touched(t.r, t.col.key, true); }
+        return;
+      }
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (!sel && e.key === 'ArrowDown') return go(1, 0);
+      if (!sel && e.key === 'ArrowUp') return go(-1, 0);
+      const all = text && (el.value === '' || (el.selectionStart === 0 && el.selectionEnd === el.value.length));
+      const atStart = !text || all || (el.selectionStart === 0 && el.selectionEnd === 0);
+      const atEnd = !text || all || (el.selectionStart === el.value.length && el.selectionEnd === el.value.length);
+      if (!sel && e.key === 'ArrowLeft' && atStart && t.c > 0) return go(0, -1);
+      if (!sel && e.key === 'ArrowRight' && atEnd && t.c < this.edit.length - 1) return go(0, 1);
+    }
+    // Writes a pasted block into the model starting at the focused cell.
+    pasteBlock(block, r0, c0) {
+      block.forEach((line, i) => {
+        const r = r0 + i;
+        while (this.rows.length <= r) this.rows.push(this.blank());
+        line.forEach((val, j) => {
+          const c = this.edit[c0 + j]; if (!c) return;
+          let v = String(val == null ? '' : val).trim();
+          if (c.type === 'check') v = AM.yes(v) ? 'YES' : '';
+          else if (c.clean) v = c.clean(v);
+          this.rows[r][c.key] = v;
+        });
+      });
+      this.render();
+      this.focusCell(r0 + block.length - 1, c0);
+      if (this.onChange) this.onChange(-1, null, true);
+    }
+    removeRow(r) { this.rows.splice(r, 1); this.render(); this.focusCell(Math.min(r, this.rows.length - 1), this.active.c); if (this.onChange) this.onChange(-1, null, true); }
+    insertRow(r) { this.rows.splice(r, 0, this.blank()); this.render(); this.focusCell(r, this.active.c); if (this.onChange) this.onChange(-1, null, true); }
+    mark(r, errs, warns, rowCls) {
+      const tr = this.body.rows[r]; if (!tr) return;
+      tr.classList.toggle('conflict', rowCls === 'conflict');
+      this.edit.forEach(c => {
+        const el = $(this.id(r, c.key)); if (!el) return;
+        const td = el.parentNode, e = errs && errs[c.key], w = warns && warns[c.key];
+        td.classList.toggle('e', !!e); td.classList.toggle('w', !e && !!w);
+        if (!(c.type === 'num' && el.classList.contains('fx'))) el.title = e || w || '';
+        else el.title = (e || w) ? `${e || w} (${this.rows[r][c.key]})` : String(this.rows[r][c.key]);
+      });
+    }
+    calc(r, key, html) { const td = $(this.id(r, key)); if (td && td.innerHTML !== html) td.innerHTML = html; }
+    toTSV() {
+      this.pad();
+      const rows = this.rows.slice(0, this.lastUsed + 1).map(row => this.edit.map(c => {
+        const v = String(row[c.key] == null ? '' : row[c.key]).trim();
+        return c.type === 'check' ? (this.isEmpty(row) ? '' : (AM.yes(v) ? 'YES' : 'NO')) : v;
+      }));
+      return AM.toTSV(rows);
+    }
+  }
+
+  /* ---------- Sheets ---------- */
+  let secEval = AM.evalSections(state.sections), memEval = [], focusName = '';
+  const secNames = () => secEval.list.map(s => s.name);
+
+  const gSections = new Grid({
+    host: $('g-sections'), gid: 's', minRows: 14, get: () => state.sections,
+    cols: [
+      { key: 'type', label: 'TYPE', type: 'select', w: 74, options: () => AM.TYPES, clean: v => v.toUpperCase() },
+      { key: 'x', label: "x'", type: 'num', w: 80, tip: 'Horizontal section width, in' },
+      { key: 'y', label: "y'", type: 'num', w: 80, tip: 'Vertical section depth, in' },
+      { key: 't', label: 't', type: 'num', w: 80, tip: 'Wall thickness, in' },
+      { key: 'notes', label: 'Notes', type: 'text', w: 150 },
+      { key: 'name', label: 'Section name', type: 'calc', w: 170 },
+      { key: 'used', label: 'Used by', type: 'calc', w: 76 },
+    ],
+    onActive: r => { focusName = (secEval.info[r] && secEval.info[r].name) || ''; },
+    onChange: (r, key, commit) => {
+      if (commit && r >= 0) {
+        const row = state.sections[r], ty = String(row.type || '').toUpperCase();
+        // Round and square sizes need one dimension: copy x' into a blank y'.
+        if ((ty === 'HC' || ty === 'SQ') && String(row.x || '').trim() && !String(row.y || '').trim()) { row.y = row.x; gSections.fillRow(r); }
+        secEval = AM.evalSections(state.sections);
+        // A resized section keeps its members: follow the rename, as the Section Manager form did.
+        const now = secEval.info[r].name;
+        if (focusName && now && focusName !== now && !secEval.dict.has(focusName)) state.members.forEach(m => { if (m.sec === focusName) m.sec = now; });
+        focusName = now;
+      }
+      refresh();
+    },
+  });
+  const gAsm = new Grid({
+    host: $('g-assemblies'), gid: 'a', minRows: 8, get: () => state.assemblies,
+    cols: [{ key: 'name', label: 'Name', type: 'text', w: 130 }, { key: 'qty', label: 'QTY', type: 'num', w: 70 }],
+    onChange: () => refresh(),
+  });
+  const gMembers = new Grid({
+    host: $('g-members'), gid: 'm', minRows: 24, get: () => state.members,
+    groups: [['Optional', 2], ['Classifier', 2], ['Tube length (in)', 3], ['isTop2Tube', 2], ['isBot2Tube', 2], ['', 1]],
+    cols: [
+      { key: 'asm', label: 'From Assembly', type: 'text', w: 96 },
+      { key: 'qty', label: 'Qty per Assembly', type: 'num', w: 70 },
+      { key: 'name', label: 'Inventor File Name', type: 'text', w: 120, tip: 'Becomes the iPart member name and part number' },
+      { key: 'sec', label: 'Part Section', type: 'select', w: 168, options: secNames, clean: v => { const s = AM.findSection(secEval.dict, v); return s ? s.name : v; } },
+      { key: 'ang', label: 'isAngled', type: 'check', w: 70, tip: 'Tick if the member is not straight and needs angled cuts' },
+      { key: 'dx', label: 'dx', type: 'num', w: 84, tip: 'Run of the diagonal, in' },
+      { key: 'dy', label: 'dy', type: 'num', w: 84, tip: 'Rise of the diagonal, or the length of a straight member, in' },
+      { key: 't2t', label: 'T2T', type: 'check', w: 44, tip: 'Top end meets a tube' },
+      { key: 'tthk', label: 'Tthk', type: 'num', w: 70, tip: 'Diameter of the tube at the top end, in' },
+      { key: 'b2t', label: 'B2T', type: 'check', w: 44, tip: 'Bottom end meets a tube' },
+      { key: 'bthk', label: 'Bthk', type: 'num', w: 70, tip: 'Diameter of the tube at the bottom end, in' },
+      { key: 'status', label: 'Check', type: 'calc', w: 230, cls: 'status' },
+    ],
+    onActive: () => { if (!$('viewer').hidden) scheduleView(); },
+    onChange: () => refresh(),
+  });
+  const grids = [gSections, gAsm, gMembers];
+
+  // Paste a block copied from Excel into whichever sheet has focus.
+  document.addEventListener('paste', e => {
+    const el = document.activeElement, g = grids.find(x => x.cellOf(el)); if (!g) return;
+    const text = (e.clipboardData || window.clipboardData).getData('text'); if (text == null) return;
+    const block = AM.parseClipboard(text), t = g.cellOf(el);
+    const single = block.length <= 1 && (block[0] || []).length <= 1;
+    if (single && el.type === 'text') return;
+    e.preventDefault();
+    if (block.length) g.pasteBlock(block, t.r, t.c);
+  });
+
+  /* ---------- Evaluate and decorate ---------- */
+  let refT = 0, secSig = '';
+  function refresh() { clearTimeout(refT); refT = setTimeout(refreshNow, 90); save(); }
+  function statusHTML(r) {
+    const first = o => Object.values(o)[0];
+    if (r.empty) return '';
+    if (!r.valid) return `<span class="chip er">Fix</span>${esc(first(r.errs))}`;
+    if (r.conflict) return `<span class="chip er">Clash</span>Same name as row ${r.conflictWith + 1}, different values`;
+    if (r.dupOf) return `<span class="chip mu">Repeat</span>${esc(r.note)}`;
+    if (Object.keys(r.warns).length) return `<span class="chip wa">Check</span>${esc(first(r.warns))}`;
+    return `<span class="chip ok">Ready</span>`;
+  }
+  function refreshNow() {
+    secEval = AM.evalSections(state.sections);
+    memEval = AM.evalMembers(state.members, secEval, state.assemblies);
+    // Sections
+    const used = new Map();
+    memEval.forEach(r => { if (r.sec) used.set(r.sec.name, (used.get(r.sec.name) || 0) + 1); });
+    secEval.info.forEach((s, r) => {
+      gSections.mark(r, s.errs, s.repeat ? { type: 'Same size as an earlier row' } : null);
+      gSections.calc(r, 'name', esc(s.name));
+      gSections.calc(r, 'used', s.ok && !s.repeat ? String(used.get(s.name) || 0) : '');
+    });
+    const sig = secNames().join('|');
+    if (sig !== secSig) { secSig = sig; gMembers.refreshSelects(); }
+    // Members
+    let ready = 0, fix = 0, warn = 0;
+    memEval.forEach((r, i) => {
+      gMembers.mark(i, r.errs, r.warns, r.conflict ? 'conflict' : '');
+      gMembers.calc(i, 'status', statusHTML(r));
+      if (r.empty) return;
+      if (r.status) ready++;
+      if (!r.valid || r.conflict) fix++; else if (Object.keys(r.warns).length) warn++;
+    });
+    $('cnt-sections').textContent = secEval.list.length;
+    $('cnt-members').textContent = fix ? `${fix} to fix` : ready;
+    $('cnt-members').classList.toggle('bad', fix > 0);
+    $('cnt-export').textContent = ready;
+    $('memSummary').textContent = `${ready} ready to export` + (fix ? ` · ${fix} to fix` : '') + (warn ? ` · ${warn} to check` : '');
+    renderExport();
+    if (!$('viewer').hidden) drawView();
+  }
+
+  /* ---------- Export ---------- */
+  const tableRows = () => [AM.HEADERS, ...AM.exportRows(memEval)];
+  function renderExport() {
+    const rows = tableRows(), n = rows.length - 1;
+    $('exCount').textContent = `${n} member${n === 1 ? '' : 's'}, sorted by name`;
+    $('exTable').innerHTML = `<table class="out"><thead><tr>${rows[0].map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+      rows.slice(1).map(r => `<tr>${r.map(v => `<td class="${typeof v === 'number' ? 'r' : v === 'Suppress' ? 'sup' : ''}">${esc(typeof v === 'number' ? AM.fmt(v) : v)}</td>`).join('')}</tr>`).join('')
+    }</tbody></table>` + (n ? '' : '<div class="empty">No members are ready yet. Fill in the Members sheet.</div>');
+    const iss = [];
+    memEval.forEach(r => {
+      if (r.empty) return;
+      const nm = esc(r.name || '(no name)');
+      if (!r.valid) iss.push([r.i, nm, 'er', 'Skipped', [...new Set(Object.values(r.errs))].join('. ')]);
+      else if (r.conflict) iss.push([r.i, nm, 'er', r.status ? 'Exported' : 'Skipped', `Same name as row ${r.conflictWith + 1} with different values. Only the first is exported.`]);
+      else if (Object.keys(r.warns).length) iss.push([r.i, nm, 'wa', r.status ? 'Exported' : 'Repeat', [...new Set(Object.values(r.warns))].join('. ')]);
+    });
+    $('issueCount').textContent = iss.length ? `${iss.length}` : '';
+    $('issues').innerHTML = iss.length
+      ? `<table class="plain"><thead><tr><th class="r">Row</th><th>Member</th><th></th><th>What to look at</th></tr></thead><tbody>${iss.map(x => `<tr><td class="r">${x[0] + 1}</td><td style="font-family:var(--mono)">${x[1]}</td><td><span class="chip ${x[2]}">${x[3]}</span></td><td>${esc(x[4])}</td></tr>`).join('')}</tbody></table>`
+      : '<div class="empty">Nothing to fix. Every filled row is in the table.</div>';
+    const q = AM.quantities(memEval, secEval);
+    $('qty').innerHTML = q.length
+      ? `<table class="plain"><thead><tr><th>Section</th><th class="r">Parts</th><th class="r">Length (in)</th><th class="r">(ft)</th></tr></thead><tbody>${q.map(x => `<tr><td style="font-family:var(--mono)">${esc(x.name)}</td><td class="r">${AM.fmt(x.parts)}</td><td class="r">${x.len.toFixed(2)}</td><td class="r">${(x.len / 12).toFixed(2)}</td></tr>`).join('')}</tbody></table>`
+      : '<div class="empty">Add a section to see totals.</div>';
+  }
+  async function copyOut(text, okMsg, where) {
+    const out = $(where);
+    $('fallback').hidden = true;
+    try {
+      await navigator.clipboard.writeText(text);
+      out.className = 'result good'; out.textContent = okMsg;
+    } catch (e) {
+      // Clipboard can be blocked in an embedded view: hand over the text to copy by hand.
+      show('export');
+      const ta = $('fallback'); ta.hidden = false; ta.value = text; ta.focus(); ta.select();
+      $('exResult').className = 'result bad'; $('exResult').textContent = 'The clipboard is blocked here. The table text is selected below: press Ctrl+C.';
+    }
+    clearTimeout(copyOut.t); copyOut.t = setTimeout(() => { out.textContent = ''; }, 9000);
+  }
+  function copyTable(kind, where) {
+    refreshNow();
+    const rows = tableRows(), n = rows.length - 1;
+    if (!n) { const o = $(where); o.className = 'result bad'; o.textContent = 'No members are ready to export yet.'; return; }
+    if (kind === 'tsv') copyOut(AM.toTSV(rows), `Copied ${n} member${n === 1 ? '' : 's'}. In Inventor, delete everything in the iPart table, then paste in A1.`, where);
+    else copyOut(AM.toCSV(rows), `Copied ${n} member${n === 1 ? '' : 's'} as CSV.`, where);
+  }
+  $('copyHead').addEventListener('click', () => copyTable('tsv', 'headResult'));
+  $('copyTsv').addEventListener('click', () => copyTable('tsv', 'exResult'));
+  $('copyCsv').addEventListener('click', () => copyTable('csv', 'exResult'));
+  $('copySheet').addEventListener('click', () => copyOut(gMembers.toTSV(), 'Sheet copied. Paste it into the Tube Generator sheet at From Assembly.', 'headResult'));
+  // File download exists only where the host grants it; the button stays hidden otherwise.
+  if (window.claude && window.claude.use) {
+    window.claude.use('downloads').then(dl => {
+      if (!dl) return;
+      downloads = dl;
+      $('saveCsv').hidden = false;
+      $('saveCsv').addEventListener('click', async () => {
+        refreshNow();
+        const rows = tableRows(), out = $('exResult');
+        if (rows.length < 2) { out.className = 'result bad'; out.textContent = 'No members are ready to export yet.'; return; }
+        try { await dl.save({ filename: 'iPartUpdateData.csv', data: AM.toCSV(rows) }); out.className = 'result good'; out.textContent = 'Saved iPartUpdateData.csv.'; }
+        catch (err) { out.className = 'result bad'; out.textContent = err && err.code === 'declined' ? 'Download cancelled.' : 'Download is not available here. Use Copy as CSV.'; }
+      });
+    }).catch(() => {});
+  }
+
+  /* ---------- View current ---------- */
+  let viewRow = 0, viewT = 0;
+  const f3 = x => (+x.toFixed(3)).toString();
+  function scheduleView() { clearTimeout(viewT); viewT = setTimeout(() => { viewRow = gMembers.active.r; drawView(); }, 60); }
+  function drawView() {
+    const r = memEval[viewRow], msg = $('vMsg');
+    gMembers.body.querySelectorAll('tr.viewing').forEach(tr => tr.classList.remove('viewing'));
+    if (gMembers.body.rows[viewRow]) gMembers.body.rows[viewRow].classList.add('viewing');
+    const fail = text => { msg.hidden = false; msg.textContent = text; $('vFacts').innerHTML = ''; if (window.AMV) window.AMV.clear(); };
+    $('vTitle').textContent = r && !r.empty && r.name ? `${r.name} · row ${viewRow + 1}` : `Row ${viewRow + 1}`;
+    if (!r || r.empty) return fail('This row is empty. Click a filled row, then View current.');
+    if (!r.valid) return fail(`Row ${viewRow + 1} cannot be drawn yet: ${Object.values(r.errs).join('. ')}.`);
+    const g = AM.solid(r.out);
+    if (!g.ok) return fail(`Row ${viewRow + 1} cannot be drawn: ${g.reason}.`);
+    const o = r.out, end = (on, d) => (on ? `Coped to Ø${f3(d)} tube` : 'Plain cut');
+    $('vFacts').innerHTML = [
+      ['Section', r.sec.name],
+      ['Shape', g.angled ? `Angled, ${g.angle.toFixed(1)}° from horizontal` : 'Straight'],
+      ['dx, dy sent to Inventor', `${f3(o[6])}, ${f3(o[7])} in`],
+      ['Centreline length', `${f3(g.len)} in`],
+      ['Cut length, long point to long point', `${f3(g.stock)} in`],
+      ['Top end', end(g.tt, o[9])],
+      ['Bottom end', end(g.bt, o[8])],
+    ].map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
+    if (window.AMV) { msg.hidden = true; window.AMV.show(g); }
+    else { msg.hidden = false; msg.textContent = window.AMV === null ? 'The 3D view is not available here. The numbers below still update.' : 'Loading the 3D view…'; }
+  }
+  function openView() {
+    viewRow = gMembers.active.r;
+    $('viewer').hidden = false; $('work').classList.add('open');
+    refreshNow();
+    if (window.AMV) window.AMV.resize();
+  }
+  function stepView(d) {
+    let r = viewRow;
+    for (let i = 0; i < memEval.length; i++) { r += d; if (r < 0 || r >= memEval.length) return; if (!memEval[r].empty) break; }
+    if (memEval[r] && !memEval[r].empty) { viewRow = r; gMembers.setActive(r); gMembers.active.r = r; drawView(); const tr = gMembers.body.rows[r]; if (tr) tr.scrollIntoView({ block: 'nearest' }); }
+  }
+  $('viewBtn').addEventListener('click', openView);
+  $('vClose').addEventListener('click', () => { $('viewer').hidden = true; $('work').classList.remove('open'); gMembers.body.querySelectorAll('tr.viewing').forEach(tr => tr.classList.remove('viewing')); });
+  $('vPrev').addEventListener('click', () => stepView(-1));
+  $('vNext').addEventListener('click', () => stepView(1));
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => window.AMV && window.AMV.setView(b.dataset.view)));
+  window.addEventListener('amv-ready', () => { if (!$('viewer').hidden) drawView(); });
+  setTimeout(() => { if (window.AMV === undefined) { window.AMV = null; if (!$('viewer').hidden) drawView(); } }, 6000);
+
+  /* ---------- Save and open ---------- */
+  let downloads = null;
+  const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  function headMsg(text, good) { const o = $('headResult'); o.className = 'result ' + (good ? 'good' : 'bad'); o.textContent = text; clearTimeout(headMsg.t); headMsg.t = setTimeout(() => (o.textContent = ''), 9000); }
+  $('saveBtn').addEventListener('click', async () => {
+    const text = AM.projectCSV(state);
+    $('saveFallback').hidden = true;
+    if (downloads) {
+      try { await downloads.save({ filename: `AutoMODELER project ${stamp()}.csv`, data: text }); headMsg('Project saved. Use Open file to load it again.', true); return; }
+      catch (err) { if (err && err.code === 'declined') { headMsg('Save cancelled.', false); return; } }
+    }
+    try { await navigator.clipboard.writeText(text); headMsg('Download is not available here, so the project was copied. Paste it into a text file saved as .csv.', true); }
+    catch (e) { const ta = $('saveFallback'); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); headMsg('Copy the project text below (Ctrl+C) into a .csv file.', false); }
+  });
+  let pending = null;
+  $('openBtn').addEventListener('click', () => { $('openFile').value = ''; $('openFile').click(); });
+  $('openFile').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    let res;
+    try { res = AM.importText(await f.text()); } catch (err) { res = { error: 'The file could not be read.' }; }
+    if (res.error) { headMsg(res.error, false); return; }
+    if (!res.members.length && !res.sections.length) { headMsg('That file has no sections or members in it.', false); return; }
+    pending = res;
+    const what = `${res.sections.length} section${res.sections.length === 1 ? '' : 's'} and ${res.members.length} member${res.members.length === 1 ? '' : 's'}`;
+    const hasData = state.members.some(m => !AM.memberEmpty(m)) || state.sections.some(r => Object.values(r).some(v => String(v || '').trim()));
+    if (!hasData) return applyImport();
+    $('confirmText').textContent = `Replace the current sheets with ${what} from ${f.name}?` + (res.kind === 'ipart' ? ' Rebuilt from an iPart table: assemblies, quantities and notes are not in that file.' : '');
+    $('confirm').hidden = false; $('confirmYes').focus();
+  });
+  function applyImport() {
+    const res = pending; pending = null; $('confirm').hidden = true; if (!res) return;
+    const nS = res.sections.length, nM = res.members.length;
+    replaceState({ sections: res.sections, assemblies: res.assemblies, members: res.members });
+    show(nM ? 'members' : 'sections');
+    headMsg(res.kind === 'ipart' ? `Rebuilt ${nM} member${nM === 1 ? '' : 's'} from the iPart table.` : `Opened ${nS} section${nS === 1 ? '' : 's'} and ${nM} member${nM === 1 ? '' : 's'}.`, true);
+  }
+  $('confirmYes').addEventListener('click', applyImport);
+  $('confirmNo').addEventListener('click', () => { pending = null; $('confirm').hidden = true; });
+
+  /* ---------- Row tools, reset ---------- */
+  $('insRow').addEventListener('click', () => gMembers.insertRow(gMembers.active.r));
+  $('delRow').addEventListener('click', () => gMembers.removeRow(gMembers.active.r));
+  function armed(btn, label, fn) {
+    let t = 0;
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('armed')) { clearTimeout(t); btn.classList.remove('armed'); btn.textContent = label; fn(); return; }
+      btn.classList.add('armed'); btn.textContent = 'Click again to confirm';
+      t = setTimeout(() => { btn.classList.remove('armed'); btn.textContent = label; }, 4000);
+    });
+  }
+  function replaceState(s) { state.sections = s.sections; state.assemblies = s.assemblies; state.members = s.members; secSig = ''; grids.forEach(g => g.render()); refreshNow(); gMembers.refreshSelects(); save(); }
+  armed($('loadExample'), 'Load example', () => replaceState(clone(EXAMPLE)));
+  armed($('clearAll'), 'Clear everything', () => replaceState({ sections: [], assemblies: [], members: [] }));
+
+  /* ---------- Tabs ---------- */
+  const TABS = ['sections', 'members', 'export'];
+  function show(name) {
+    if (!TABS.includes(name)) name = 'members';
+    TABS.forEach(t => { $('view-' + t).hidden = t !== name; $('tab-' + t).setAttribute('aria-selected', t === name); });
+    if (name === 'export') refreshNow();
+    if (name === 'members' && window.AMV && !$('viewer').hidden) window.AMV.resize();
+    if (location.hash.slice(1) !== name) { try { location.hash = name; } catch (e) {} }
+  }
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+  window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+
+  refreshNow();
+  gMembers.refreshSelects();
+  show(location.hash.slice(1) || 'members');
+})();
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const host = document.getElementById('viewport');
+let renderer = null;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { window.AMV = null; }
+
+if (renderer) {
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  host.prepend(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 5000);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445066, 1.5));
+  const d1 = new THREE.DirectionalLight(0xffffff, 2.1); d1.position.set(1, 1.6, 1.2); scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0xffffff, 0.8); d2.position.set(-1.2, -0.4, -1); scene.add(d2);
+  let group = null, radius = 1, dir = new THREE.Vector3(0.62, 0.42, 0.9).normalize();
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(host);
+
+  function clear() {
+    if (!group) return;
+    group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    scene.remove(group); group = null;
+  }
+  // Skins and end caps from the paired rings. Each block has its own vertices so the ends stay crisp.
+  function mesh(g) {
+    const pos = [], idx = [], N = g.outerB.length;
+    const add = ring => { const b = pos.length / 3; ring.forEach(p => pos.push(p.x, p.y, p.z)); return b; };
+    const band = (ra, rb) => { const a = add(ra), b = add(rb); for (let i = 0; i < N; i++) { const j = (i + 1) % N; idx.push(a + i, a + j, b + j, a + i, b + j, b + i); } };
+    const fan = ring => {
+      const a = add(ring), c = pos.length / 3, m = ring.reduce((s, p) => [s[0] + p.x / N, s[1] + p.y / N, s[2] + p.z / N], [0, 0, 0]);
+      pos.push(...m); for (let i = 0; i < N; i++) idx.push(a + i, a + (i + 1) % N, c);
+    };
+    band(g.outerB, g.outerT);
+    if (g.innerB) { band(g.innerB, g.innerT); band(g.outerB, g.innerB); band(g.outerT, g.innerT); }
+    else { fan(g.outerB); fan(g.outerT); }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    return geo;
+  }
+  const loopLine = (ring, mat) => new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ring.map(p => new THREE.Vector3(p.x, p.y, p.z))), mat);
+  const seg = (pts, mat) => new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p))), mat);
+
+  function show(g) {
+    clear();
+    group = new THREE.Group();
+    const ink = new THREE.Color(css('--ink')), accent = new THREE.Color(css('--accent')), muted = new THREE.Color(css('--muted'));
+    const body = new THREE.Mesh(mesh(g), new THREE.MeshStandardMaterial({ color: new THREE.Color(css('--steel')), metalness: 0.25, roughness: 0.5, side: THREE.DoubleSide }));
+    group.add(body);
+    const edge = new THREE.LineBasicMaterial({ color: ink, transparent: true, opacity: 0.7 });
+    [g.outerB, g.outerT, g.innerB, g.innerT].forEach(r => r && group.add(loopLine(r, edge)));
+    // Run and rise, and the lines the ends are cut to.
+    const guide = new THREE.LineBasicMaterial({ color: accent }), faint = new THREE.LineBasicMaterial({ color: muted, transparent: true, opacity: 0.6 });
+    if (g.angled) group.add(seg([[0, 0, 0], [g.run, 0, 0], [g.run, g.rise, 0]], guide));
+    const reach = Math.max(g.sec.x, g.sec.y) * 2.2;
+    group.add(seg([[-reach, 0, 0], [reach, 0, 0]], faint), seg([[g.run - reach, g.rise, 0], [g.run + reach, g.rise, 0]], faint));
+    // Ghost of the tube at a coped end.
+    const ghost = (R, x, y) => {
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(R, R, reach * 2, 48, 1, true), new THREE.MeshStandardMaterial({ color: accent, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+      c.rotation.z = Math.PI / 2; c.position.set(x, y, 0); group.add(c);
+    };
+    if (g.tt && g.Rt > 0) ghost(g.Rt, g.run, g.rise);
+    if (g.bt && g.Rb > 0) ghost(g.Rb, 0, 0);
+    scene.add(group);
+    const box = new THREE.Box3().setFromObject(group), c = box.getCenter(new THREE.Vector3());
+    group.position.sub(c);
+    radius = box.getSize(new THREE.Vector3()).length() / 2;
+    fit();
+  }
+  function fit() {
+    resize();
+    const fov = camera.fov * Math.PI / 180, half = Math.min(fov, 2 * Math.atan(Math.tan(fov / 2) * camera.aspect)) / 2;
+    const d = radius / Math.sin(half) * 1.05;
+    camera.position.copy(dir).multiplyScalar(d); controls.target.set(0, 0, 0);
+    camera.near = d / 100; camera.far = d * 20; camera.updateProjectionMatrix(); controls.update();
+  }
+  function setView(v) {
+    dir = new THREE.Vector3(...({ iso: [0.62, 0.42, 0.9], elev: [0, 0, 1], side: [1, 0, 0.0001], top: [0, 1, 0.0001] }[v] || [0.62, 0.42, 0.9])).normalize();
+    fit();
+  }
+  controls.addEventListener('end', () => { dir = camera.position.clone().sub(controls.target).normalize(); });
+  (function loop() { requestAnimationFrame(loop); if (!host.clientWidth) return; controls.update(); renderer.render(scene, camera); })();
+
+  window.AMV = { show, clear, setView, resize };
+  window.dispatchEvent(new Event('amv-ready'));
+}
+</script>
+</body>
+</html>
